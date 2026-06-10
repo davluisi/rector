@@ -1,21 +1,26 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import './global.css';
 import { StatusBar } from 'expo-status-bar';
 import {
-  StyleSheet,
-  Text,
   View,
   Image,
   TouchableOpacity,
-  TextInput,
   ScrollView,
-  SafeAreaView,
-  Dimensions,
+  Text,
+  Animated,
   Platform,
-  StatusBar as RNStatusBar
+  StatusBar as RNStatusBar,
+  PanResponder
 } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
+// Components
+import HeroSection from './components/HeroSection';
+import SearchBar from './components/SearchBar';
+import FilterSelector from './components/FilterSelector';
+import TrainerCard from './components/TrainerCard';
+import AuthModal from './components/AuthModal';
 
 // Mock data for Personal Trainers
 const TRAINERS = [
@@ -51,386 +56,220 @@ const TRAINERS = [
 export default function App() {
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('Tutti');
+  const [authModalVisible, setAuthModalVisible] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Dropdown Menu popup animation state
+  const [menuRendered, setMenuRendered] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const slideAnim = useRef(new Animated.Value(300)).current; // starts offscreen to the right
+
+  // PanResponder to handle swiping the menu to the right to close it
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => false,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        // Intercept movement if swiping to the right and movement is horizontal
+        return gestureState.dx > 10 && Math.abs(gestureState.dy) < 30;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dx > 0) {
+          slideAnim.setValue(gestureState.dx);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dx > 80 || gestureState.vx > 0.5) {
+          setMenuVisible(false);
+          Animated.timing(slideAnim, {
+            toValue: 300,
+            duration: 180,
+            useNativeDriver: true,
+          }).start(() => setMenuRendered(false));
+        } else {
+          Animated.spring(slideAnim, {
+            toValue: 0,
+            useNativeDriver: true,
+            friction: 6,
+          }).start();
+        }
+      },
+    })
+  ).current;
 
   const filters = ['Tutti', 'Bodybuilding', 'Dimagrimento', 'Funzionale', 'Pilates'];
 
+  const toggleMenu = () => {
+    if (menuVisible) {
+      setMenuVisible(false);
+      // Slide out animation
+      Animated.timing(slideAnim, {
+        toValue: 300,
+        duration: 220,
+        useNativeDriver: true,
+      }).start(() => setMenuRendered(false));
+    } else {
+      setMenuRendered(true);
+      setMenuVisible(true);
+      // Slide in animation
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 220,
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+  const handleLogout = () => {
+    // Perform logout
+    setCurrentUser(null);
+    setMenuVisible(false);
+    setMenuRendered(false);
+    slideAnim.setValue(300);
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar style="light" />
+    <SafeAreaProvider>
+      <SafeAreaView className="flex-1 bg-premiumDark">
+        <StatusBar style="light" />
 
       {/* Header */}
-      <View style={styles.header}>
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1A1A1E] z-50">
         <Image
           source={require('./assets/logo.png')}
-          style={styles.logo}
+          className="h-12 w-[150px]"
           resizeMode="contain"
         />
-        <TouchableOpacity style={styles.loginButton} activeOpacity={0.7}>
-          <Ionicons name="person-circle-outline" size={32} color="#00F0FF" />
-        </TouchableOpacity>
+
+        {/* Profile Button Section */}
+        <View className="flex-row items-center">
+          {currentUser ? (
+            // Pill button when user is logged in
+            <TouchableOpacity 
+              className={`flex-row items-center bg-[#1E1E24] pl-4 pr-1 h-12 rounded-full border ${
+                menuVisible ? 'border-accentCyan bg-[#24242C]' : 'border-[#303038]'
+              }`}
+              activeOpacity={0.7}
+              onPress={toggleMenu}
+            >
+              <Text className="text-white text-sm font-semibold mr-2">{currentUser.nome}</Text>
+              <View className="w-10 h-10 rounded-full justify-center items-center">
+                {currentUser.urlImmagineProfilo ? (
+                  <Image source={{ uri: currentUser.urlImmagineProfilo }} className="w-full h-full rounded-full" />
+                ) : (
+                  <Ionicons name="person-circle-outline" size={34} color="#00F0FF" />
+                )}
+              </View>
+            </TouchableOpacity>
+          ) : (
+            // Default circular avatar button when user is not logged in
+            <TouchableOpacity 
+              className="items-center justify-center bg-[#1E1E24] w-12 h-12 rounded-full border border-[#303038]" 
+              activeOpacity={0.7}
+              onPress={() => {
+                setAuthMode('login');
+                setAuthModalVisible(true);
+              }}
+            >
+              <View className="w-10 h-10 rounded-full justify-center items-center">
+                <Ionicons name="person-circle-outline" size={34} color="#00F0FF" />
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+      {/* Dropdown Menu Popup (Absolutely Positioned) */}
+      {menuRendered && (
+        <Animated.View 
+          {...panResponder.panHandlers}
+          style={{
+            transform: [{ translateX: slideAnim }],
+            position: 'absolute',
+            top: Platform.OS === 'android' ? 66 + (RNStatusBar.currentHeight || 0) : 66,
+            right: 20,
+            zIndex: 999,
+          }}
+          className="bg-cardDark border border-borderDark rounded-2xl p-5 w-64 shadow-2xl"
+        >
+          {/* User Full Name Info */}
+          <View className="mb-4 pb-4 border-b border-borderDark">
+            <Text className="text-white font-bold text-lg">{currentUser?.nome} {currentUser?.cognome}</Text>
+            <Text className="text-zinc-400 text-sm mt-1">{currentUser?.email}</Text>
+          </View>
+
+          {/* Action: Modifica Profilo */}
+          <TouchableOpacity 
+            className="flex-row items-center gap-3 py-3"
+            activeOpacity={0.7}
+          >
+            <Ionicons name="create-outline" size={22} color="#00F0FF" />
+            <Text className="text-zinc-300 text-base font-semibold">Modifica profilo</Text>
+          </TouchableOpacity>
+
+          {/* Action: Logout */}
+          <TouchableOpacity 
+            className="flex-row items-center gap-3 py-3 border-t border-borderDark mt-2"
+            activeOpacity={0.7}
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={22} color="#FF2E93" />
+            <Text className="text-accentPink text-base font-bold">Logout</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
         {/* Hero Banner / Intro */}
-        <View style={styles.heroContainer}>
-          <Text style={styles.heroTitle}>Trova il personal trainer</Text>
-          <Text style={styles.heroAccent}>più adatto a te</Text>
-          <Text style={styles.heroSubtitle}>
-            Ti alleni dove e quando vuoi, supportato da professionisti certificati.
-          </Text>
-        </View>
+        <HeroSection />
 
         {/* Search Bar */}
-        <View style={styles.searchContainer}>
-          <Ionicons name="search-outline" size={20} color="#888" style={styles.searchIcon} />
-          <TextInput
-            placeholder="Cerca per nome, città o specialità..."
-            placeholderTextColor="#888"
-            style={styles.searchInput}
-            value={search}
-            onChangeText={setSearch}
-          />
-          <TouchableOpacity style={styles.filterIconButton}>
-            <Ionicons name="options-outline" size={20} color="#FF2E93" />
-          </TouchableOpacity>
-        </View>
+        <SearchBar value={search} onChangeText={setSearch} />
 
         {/* Quick Filters */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filtersContainer}
-          contentContainerStyle={styles.filtersContent}
-        >
-          {filters.map((filter) => (
-            <TouchableOpacity
-              key={filter}
-              onPress={() => setSelectedFilter(filter)}
-              style={[
-                styles.filterTag,
-                selectedFilter === filter && styles.filterTagActive
-              ]}
-            >
-              <Text style={[
-                styles.filterTagText,
-                selectedFilter === filter && styles.filterTagTextActive
-              ]}>
-                {filter}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        <FilterSelector
+          filters={filters}
+          selectedFilter={selectedFilter}
+          onSelectFilter={setSelectedFilter}
+        />
 
-        {/* Trainers Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>I migliori Professionisti</Text>
+        {/* Trainers Section Header */}
+        <View className="flex-row justify-between items-center mx-5 mt-7 mb-4">
+          <Text className="text-lg font-bold text-white">I migliori Professionisti</Text>
           <TouchableOpacity>
-            <Text style={styles.seeAllText}>Vedi tutti</Text>
+            <Text className="text-accentCyan text-sm font-semibold">Vedi tutti</Text>
           </TouchableOpacity>
         </View>
 
         {/* Trainer Cards */}
         {TRAINERS.map((trainer) => (
-          <TouchableOpacity key={trainer.id} style={styles.card} activeOpacity={0.95}>
-            <Image source={{ uri: trainer.avatar }} style={styles.avatar} />
-            <View style={styles.cardDetails}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.trainerName}>{trainer.name}</Text>
-                <View style={styles.ratingContainer}>
-                  <Ionicons name="star" size={14} color="#FFD700" />
-                  <Text style={styles.ratingText}>{trainer.rating}</Text>
-                </View>
-              </View>
-
-              <View style={styles.specialtiesContainer}>
-                {trainer.specialties.map((spec, idx) => (
-                  <View key={idx} style={styles.specialtyBadge}>
-                    <Text style={styles.specialtyText}>{spec}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.cardFooter}>
-                <Text style={styles.priceText}>
-                  da <Text style={styles.priceHighlight}>{trainer.price}€</Text>/ora
-                </Text>
-                <View style={styles.actionButton}>
-                  <Text style={styles.actionButtonText}>Profilo</Text>
-                  <Ionicons name="chevron-forward" size={14} color="#fff" />
-                </View>
-              </View>
-            </View>
-          </TouchableOpacity>
+          <TrainerCard key={trainer.id} trainer={trainer} />
         ))}
 
-        {/* Bottom Banner for Motivation */}
-        <View style={styles.promoCard}>
-          <Text style={styles.promoTitle}>Sei un Personal Trainer?</Text>
-          <Text style={styles.promoSubtitle}>Unisciti a MondoPT per ampliare la tua clientela e gestire il tuo business.</Text>
-          <TouchableOpacity style={styles.promoButton}>
-            <Text style={styles.promoButtonText}>Inizia Ora</Text>
+        {/* Bottom Promo Card */}
+        <View className="bg-[#1E1B29] mx-5 mt-6 rounded-2xl p-5 border border-[#3B2F52] items-center">
+          <Text className="text-lg font-extrabold text-white mb-1.5">Sei un Personal Trainer?</Text>
+          <Text className="text-xs text-[#B4B0C4] text-center leading-[18px] mb-4">
+            Unisciti a MondoPT per ampliare la tua clientela e gestire il tuo business.
+          </Text>
+          <TouchableOpacity className="bg-white py-2.5 px-5 rounded-lg">
+            <Text className="text-[#1E1B29] text-sm font-bold">Inizia Ora</Text>
           </TouchableOpacity>
         </View>
 
       </ScrollView>
-    </SafeAreaView>
+
+      {/* Auth Modal Popup */}
+      <AuthModal
+        visible={authModalVisible}
+        onClose={() => setAuthModalVisible(false)}
+        mode={authMode}
+        setMode={setAuthMode}
+        onLoginSuccess={(user) => setCurrentUser(user)}
+      />
+
+      </SafeAreaView>
+    </SafeAreaProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0E0E10', // Deep Premium Dark Background
-    paddingTop: Platform.OS === 'android' ? RNStatusBar.currentHeight : 0,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1A1A1E',
-  },
-  logo: {
-    height: 48,
-    width: 150,
-  },
-  loginButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#1E1E24',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#303038',
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  heroContainer: {
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 16,
-  },
-  heroTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: -0.5,
-  },
-  heroAccent: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#00F0FF', // Cyan accent from Logo
-    textTransform: 'uppercase',
-    marginTop: 2,
-  },
-  heroSubtitle: {
-    fontSize: 15,
-    color: '#A1A1AA',
-    marginTop: 8,
-    lineHeight: 22,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#1C1C1E',
-    marginHorizontal: 20,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 50,
-    borderWidth: 1,
-    borderColor: '#2C2C2E',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  searchIcon: {
-    marginRight: 10,
-  },
-  searchInput: {
-    flex: 1,
-    color: '#FFFFFF',
-    fontSize: 15,
-  },
-  filterIconButton: {
-    padding: 6,
-  },
-  filtersContainer: {
-    marginTop: 16,
-    paddingLeft: 20,
-  },
-  filtersContent: {
-    paddingRight: 40,
-  },
-  filterTag: {
-    backgroundColor: '#1C1C1E',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#2C2C2E',
-  },
-  filterTagActive: {
-    backgroundColor: '#FF2E93', // Pink accent from Logo
-    borderColor: '#FF2E93',
-  },
-  filterTagText: {
-    color: '#A1A1AA',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  filterTagTextActive: {
-    color: '#FFFFFF',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 20,
-    marginTop: 28,
-    marginBottom: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  seeAllText: {
-    color: '#00F0FF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#18181C',
-    marginHorizontal: 20,
-    marginBottom: 16,
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#282830',
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    backgroundColor: '#2C2C35',
-  },
-  cardDetails: {
-    flex: 1,
-    marginLeft: 14,
-    justifyContent: 'space-between',
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  trainerName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2A2A30',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-  },
-  ratingText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-    marginLeft: 4,
-  },
-  specialtiesContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 6,
-  },
-  specialtyBadge: {
-    backgroundColor: '#26262B',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginRight: 6,
-    marginBottom: 4,
-  },
-  specialtyText: {
-    color: '#A1A1AA',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  cardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  priceText: {
-    color: '#71717A',
-    fontSize: 13,
-  },
-  priceHighlight: {
-    color: '#00F0FF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FF2E93',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-  },
-  actionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-    marginRight: 4,
-  },
-  promoCard: {
-    backgroundColor: '#1E1B29', // Dark Purple-ish shade
-    marginHorizontal: 20,
-    marginTop: 24,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: '#3B2F52',
-    alignItems: 'center',
-  },
-  promoTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 6,
-  },
-  promoSubtitle: {
-    fontSize: 13,
-    color: '#B4B0C4',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 16,
-  },
-  promoButton: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-  },
-  promoButtonText: {
-    color: '#1E1B29',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-});
