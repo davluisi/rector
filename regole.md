@@ -40,4 +40,13 @@ Per garantire la scalabilità e la pulizia del codice frontend:
 *   **COMPONENTI MODULARI**: Evita di creare un unico file monolitico gigantesco (es. `App.js` enorme). Suddividi l'applicazione in componenti indipendenti, riutilizzabili e logicamente separati all'interno della cartella `components/` (es. `AuthModal.js`, `TrainerCard.js`).
 *   **STYLING CON TAILWIND CSS**: Utilizza **Tailwind CSS** (tramite **NativeWind v4**) per lo styling delle interfacce tramite l'attributo `className`.
 *   **NO STYLE SHEET**: Evita l'uso del classico `StyleSheet.create` di React Native per non frammentare la definizione dei layout e mantenere gli stili vicini alla struttura dei tag (utility-first).
+*   **STILE MINIMAL E TEMA DARK**: Lo stile dell'applicazione deve essere sempre **MINIMAL** e utilizzare un tema **sempre dark** (scuro).
+
+---
+
+## 4. Lingua di Comunicazione
+
+*   **RISPOSTE IN ITALIANO**: L'assistente deve rispondere e interagire **sempre in lingua italiana** con l'utente in chat.
+
+
 

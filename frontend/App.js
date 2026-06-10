@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import './global.css';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -10,7 +10,8 @@ import {
   Animated,
   Platform,
   StatusBar as RNStatusBar,
-  PanResponder
+  PanResponder,
+  Dimensions
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,7 +21,8 @@ import HeroSection from './components/HeroSection';
 import SearchBar from './components/SearchBar';
 import FilterSelector from './components/FilterSelector';
 import TrainerCard from './components/TrainerCard';
-import AuthModal from './components/AuthModal';
+import AuthScreen from './components/AuthScreen';
+import ProfileScreen from './components/ProfileScreen';
 
 // Mock data for Personal Trainers
 const TRAINERS = [
@@ -53,79 +55,80 @@ const TRAINERS = [
   },
 ];
 
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export default function App() {
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('Tutti');
-  const [authModalVisible, setAuthModalVisible] = useState(false);
   const [authMode, setAuthMode] = useState('login');
   const [currentUser, setCurrentUser] = useState(null);
+  
+  const [activeTab, setActiveTab] = useState('world');
+  
+  // Independent Animated.Value offsets for each tab to enable clean transitions
+  const barbellX = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
+  const worldX = useRef(new Animated.Value(0)).current; // starts at center (0)
+  const profileX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const prevTabRef = useRef('world');
 
-  // Dropdown Menu popup animation state
-  const [menuRendered, setMenuRendered] = useState(false);
-  const [menuVisible, setMenuVisible] = useState(false);
-  const slideAnim = useRef(new Animated.Value(300)).current; // starts offscreen to the right
+  useEffect(() => {
+    const prevTab = prevTabRef.current;
+    prevTabRef.current = activeTab;
 
-  // PanResponder to handle swiping the menu to the right to close it
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => false,
-      onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Intercept movement if swiping to the right and movement is horizontal
-        return gestureState.dx > 10 && Math.abs(gestureState.dy) < 30;
-      },
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dx > 0) {
-          slideAnim.setValue(gestureState.dx);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dx > 80 || gestureState.vx > 0.5) {
-          setMenuVisible(false);
-          Animated.timing(slideAnim, {
-            toValue: 300,
-            duration: 180,
-            useNativeDriver: true,
-          }).start(() => setMenuRendered(false));
-        } else {
-          Animated.spring(slideAnim, {
-            toValue: 0,
-            useNativeDriver: true,
-            friction: 6,
-          }).start();
-        }
-      },
-    })
-  ).current;
+    // Direct transition between extreme tabs (barbell <-> profile):
+    // Move the middle tab (world) offscreen immediately so it isn't seen passing through.
+    if (prevTab === 'barbell' && activeTab === 'profile') {
+      worldX.setValue(-SCREEN_WIDTH);
+    } else if (prevTab === 'profile' && activeTab === 'barbell') {
+      worldX.setValue(SCREEN_WIDTH);
+    }
+
+    // Set target positions
+    let targetBarbell = -SCREEN_WIDTH;
+    let targetWorld = 0;
+    let targetProfile = SCREEN_WIDTH;
+
+    if (activeTab === 'barbell') {
+      targetBarbell = 0;
+      targetWorld = SCREEN_WIDTH;
+      targetProfile = SCREEN_WIDTH;
+    } else if (activeTab === 'world') {
+      targetBarbell = -SCREEN_WIDTH;
+      targetWorld = 0;
+      targetProfile = SCREEN_WIDTH;
+    } else if (activeTab === 'profile') {
+      targetBarbell = -SCREEN_WIDTH;
+      targetWorld = -SCREEN_WIDTH;
+      targetProfile = 0;
+    }
+
+    Animated.parallel([
+      Animated.timing(barbellX, {
+        toValue: targetBarbell,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(worldX, {
+        toValue: targetWorld,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(profileX, {
+        toValue: targetProfile,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [activeTab]);
+
+  const barbellTranslateX = barbellX;
+  const worldTranslateX = worldX;
+  const profileTranslateX = profileX;
 
   const filters = ['Tutti', 'Bodybuilding', 'Dimagrimento', 'Funzionale', 'Pilates'];
 
-  const toggleMenu = () => {
-    if (menuVisible) {
-      setMenuVisible(false);
-      // Slide out animation
-      Animated.timing(slideAnim, {
-        toValue: 300,
-        duration: 220,
-        useNativeDriver: true,
-      }).start(() => setMenuRendered(false));
-    } else {
-      setMenuRendered(true);
-      setMenuVisible(true);
-      // Slide in animation
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 220,
-        useNativeDriver: true,
-      }).start();
-    }
-  };
-
   const handleLogout = () => {
-    // Perform logout
     setCurrentUser(null);
-    setMenuVisible(false);
-    setMenuRendered(false);
-    slideAnim.setValue(300);
   };
 
   return (
@@ -134,140 +137,175 @@ export default function App() {
         <StatusBar style="light" />
 
       {/* Header */}
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1A1A1E] z-50">
+      <View className="flex-row items-center justify-center py-3 border-b border-[#1A1A1E] z-50">
         <Image
           source={require('./assets/logo.png')}
           className="h-12 w-[150px]"
           resizeMode="contain"
         />
+      </View>
 
-        {/* Profile Button Section */}
-        <View className="flex-row items-center">
+      {/* Area Contenuto Principale */}
+      <View 
+        className="flex-1 relative"
+      >
+        
+
+        {/* Schermata Home (World) */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: [{ translateX: worldTranslateX }],
+          }}
+        >
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+
+            {/* Hero Banner / Intro */}
+            <HeroSection />
+
+            {/* Search Bar */}
+            <SearchBar value={search} onChangeText={setSearch} />
+
+            {/* Quick Filters */}
+            <FilterSelector
+              filters={filters}
+              selectedFilter={selectedFilter}
+              onSelectFilter={setSelectedFilter}
+            />
+
+            {/* Trainers Section Header */}
+            <View className="flex-row justify-between items-center mx-5 mt-7 mb-4">
+              <Text className="text-lg font-bold text-white">I migliori Professionisti</Text>
+              <TouchableOpacity>
+                <Text className="text-accentCyan text-sm font-semibold">Vedi tutti</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Trainer Cards */}
+            {TRAINERS.map((trainer) => (
+              <TrainerCard key={trainer.id} trainer={trainer} />
+            ))}
+
+            {/* Bottom Promo Card */}
+            <View className="bg-[#1E1B29] mx-5 mt-6 rounded-2xl p-5 border border-[#3B2F52] items-center">
+              <Text className="text-lg font-extrabold text-white mb-1.5">Sei un Personal Trainer?</Text>
+              <Text className="text-xs text-[#B4B0C4] text-center leading-[18px] mb-4">
+                Unisciti a MondoPT per ampliare la tua clientela e gestire il tuo business.
+              </Text>
+              <TouchableOpacity className="bg-white py-2.5 px-5 rounded-lg">
+                <Text className="text-[#1E1B29] text-sm font-bold">Inizia Ora</Text>
+              </TouchableOpacity>
+            </View>
+
+          </ScrollView>
+        </Animated.View>
+
+        {/* Schermata Allenamenti (Barbell) */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: [{ translateX: barbellTranslateX }],
+          }}
+          className="bg-premiumDark justify-center items-center px-6"
+        >
+          <Ionicons name="barbell-outline" size={64} color="#303038" className="mb-4" />
+          <Text className="text-zinc-500 font-bold text-lg text-center">Allenamenti</Text>
+          <Text className="text-zinc-600 text-sm text-center mt-1">Nessuna scheda caricata per il momento.</Text>
+        </Animated.View>
+
+        {/* Auth Screen (compresa tra topbar e bottombar) */}
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: [{ translateX: profileTranslateX }],
+          }}
+        >
           {currentUser ? (
-            // Pill button when user is logged in
+            <ProfileScreen
+              user={currentUser}
+              onLogout={handleLogout}
+            />
+          ) : (
+            <AuthScreen
+              visible={activeTab === 'profile'}
+              onClose={() => setActiveTab('world')}
+              mode={authMode}
+              setMode={setAuthMode}
+              onLoginSuccess={(user) => {
+                setCurrentUser(user);
+                setActiveTab('profile');
+              }}
+            />
+          )}
+        </Animated.View>
+      </View>
+
+      {/* Bottom Navigation Bar */}
+      <View className="flex-row items-center justify-around py-4 bg-[#121216] border-t border-[#1F1F24] px-6 z-40">
+        {/* Barbell/Trainers tab */}
+        <TouchableOpacity 
+          className="items-center justify-center p-2" 
+          activeOpacity={0.7}
+          onPress={() => setActiveTab('barbell')}
+        >
+          <Ionicons name="barbell-outline" size={28} color={activeTab === 'barbell' ? '#00F0FF' : '#71717A'} />
+        </TouchableOpacity>
+
+        {/* Network/World tab */}
+        <TouchableOpacity 
+          className="items-center justify-center p-2" 
+          activeOpacity={0.7}
+          onPress={() => setActiveTab('world')}
+        >
+          <Ionicons name="earth-outline" size={26} color={activeTab === 'world' ? '#00F0FF' : '#71717A'} />
+        </TouchableOpacity>
+
+        {/* User profile tab */}
+        <View>
+          {currentUser ? (
             <TouchableOpacity 
-              className={`flex-row items-center bg-[#1E1E24] pl-4 pr-1 h-12 rounded-full border ${
-                menuVisible ? 'border-accentCyan bg-[#24242C]' : 'border-[#303038]'
+              className={`w-9 h-9 rounded-full justify-center items-center overflow-hidden border ${
+                activeTab === 'profile' ? 'border-accentCyan bg-[#24242C]' : 'border-[#303038]'
               }`}
               activeOpacity={0.7}
-              onPress={toggleMenu}
+              onPress={() => {
+                setActiveTab('profile');
+              }}
             >
-              <Text className="text-white text-sm font-semibold mr-2">{currentUser.nome}</Text>
-              <View className="w-10 h-10 rounded-full justify-center items-center">
-                {currentUser.urlImmagineProfilo ? (
-                  <Image source={{ uri: currentUser.urlImmagineProfilo }} className="w-full h-full rounded-full" />
-                ) : (
-                  <Ionicons name="person-circle-outline" size={34} color="#00F0FF" />
-                )}
-              </View>
+              {currentUser.urlImmagineProfilo ? (
+                <Image source={{ uri: currentUser.urlImmagineProfilo }} className="w-full h-full" />
+              ) : (
+                <Ionicons name="person-outline" size={20} color={activeTab === 'profile' ? '#00F0FF' : '#71717A'} />
+              )}
             </TouchableOpacity>
           ) : (
-            // Default circular avatar button when user is not logged in
             <TouchableOpacity 
-              className="items-center justify-center bg-[#1E1E24] w-12 h-12 rounded-full border border-[#303038]" 
+              className={`w-9 h-9 rounded-full justify-center items-center border bg-[#1E1E24] ${
+                activeTab === 'profile' ? 'border-accentCyan' : 'border-[#303038]'
+              }`}
               activeOpacity={0.7}
               onPress={() => {
                 setAuthMode('login');
-                setAuthModalVisible(true);
+                setActiveTab('profile');
               }}
             >
-              <View className="w-10 h-10 rounded-full justify-center items-center">
-                <Ionicons name="person-circle-outline" size={34} color="#00F0FF" />
-              </View>
+              <Ionicons name="person-outline" size={20} color={activeTab === 'profile' ? '#00F0FF' : '#71717A'} />
             </TouchableOpacity>
           )}
         </View>
       </View>
-
-      {/* Dropdown Menu Popup (Absolutely Positioned) */}
-      {menuRendered && (
-        <Animated.View 
-          {...panResponder.panHandlers}
-          style={{
-            transform: [{ translateX: slideAnim }],
-            position: 'absolute',
-            top: Platform.OS === 'android' ? 66 + (RNStatusBar.currentHeight || 0) : 66,
-            right: 20,
-            zIndex: 999,
-          }}
-          className="bg-cardDark border border-borderDark rounded-2xl p-5 w-64 shadow-2xl"
-        >
-          {/* User Full Name Info */}
-          <View className="mb-4 pb-4 border-b border-borderDark">
-            <Text className="text-white font-bold text-lg">{currentUser?.nome} {currentUser?.cognome}</Text>
-            <Text className="text-zinc-400 text-sm mt-1">{currentUser?.email}</Text>
-          </View>
-
-          {/* Action: Modifica Profilo */}
-          <TouchableOpacity 
-            className="flex-row items-center gap-3 py-3"
-            activeOpacity={0.7}
-          >
-            <Ionicons name="create-outline" size={22} color="#00F0FF" />
-            <Text className="text-zinc-300 text-base font-semibold">Modifica profilo</Text>
-          </TouchableOpacity>
-
-          {/* Action: Logout */}
-          <TouchableOpacity 
-            className="flex-row items-center gap-3 py-3 border-t border-borderDark mt-2"
-            activeOpacity={0.7}
-            onPress={handleLogout}
-          >
-            <Ionicons name="log-out-outline" size={22} color="#FF2E93" />
-            <Text className="text-accentPink text-base font-bold">Logout</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      )}
-
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-
-        {/* Hero Banner / Intro */}
-        <HeroSection />
-
-        {/* Search Bar */}
-        <SearchBar value={search} onChangeText={setSearch} />
-
-        {/* Quick Filters */}
-        <FilterSelector
-          filters={filters}
-          selectedFilter={selectedFilter}
-          onSelectFilter={setSelectedFilter}
-        />
-
-        {/* Trainers Section Header */}
-        <View className="flex-row justify-between items-center mx-5 mt-7 mb-4">
-          <Text className="text-lg font-bold text-white">I migliori Professionisti</Text>
-          <TouchableOpacity>
-            <Text className="text-accentCyan text-sm font-semibold">Vedi tutti</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Trainer Cards */}
-        {TRAINERS.map((trainer) => (
-          <TrainerCard key={trainer.id} trainer={trainer} />
-        ))}
-
-        {/* Bottom Promo Card */}
-        <View className="bg-[#1E1B29] mx-5 mt-6 rounded-2xl p-5 border border-[#3B2F52] items-center">
-          <Text className="text-lg font-extrabold text-white mb-1.5">Sei un Personal Trainer?</Text>
-          <Text className="text-xs text-[#B4B0C4] text-center leading-[18px] mb-4">
-            Unisciti a MondoPT per ampliare la tua clientela e gestire il tuo business.
-          </Text>
-          <TouchableOpacity className="bg-white py-2.5 px-5 rounded-lg">
-            <Text className="text-[#1E1B29] text-sm font-bold">Inizia Ora</Text>
-          </TouchableOpacity>
-        </View>
-
-      </ScrollView>
-
-      {/* Auth Modal Popup */}
-      <AuthModal
-        visible={authModalVisible}
-        onClose={() => setAuthModalVisible(false)}
-        mode={authMode}
-        setMode={setAuthMode}
-        onLoginSuccess={(user) => setCurrentUser(user)}
-      />
 
       </SafeAreaView>
     </SafeAreaProvider>
