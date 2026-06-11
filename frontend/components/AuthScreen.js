@@ -37,6 +37,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
 
   // Validation/Error states
   const [submitted, setSubmitted] = useState(false);
+  const [modifiedFields, setModifiedFields] = useState({});
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -45,6 +46,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     setErrorMessage('');
     setSuccessMessage('');
     setSubmitted(false);
+    setModifiedFields({});
   }, [mode]);
 
 
@@ -58,6 +60,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     setAltezza('');
     setSelectedGender(null);
     setSubmitted(false);
+    setModifiedFields({});
     setErrorMessage('');
     setSuccessMessage('');
     passwordRef.current = '';
@@ -68,6 +71,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
 
   const handleLogin = async () => {
     setSubmitted(true);
+    setModifiedFields({});
     setErrorMessage('');
     setSuccessMessage('');
 
@@ -118,10 +122,11 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
 
   const handleRegister = async () => {
     setSubmitted(true);
+    setModifiedFields({});
     setErrorMessage('');
 
-    const pwd = passwordRef.current;
-    const confirmPwd = confirmPasswordRef.current;
+    const pwd = (passwordRef.current || '').trim();
+    const confirmPwd = (confirmPasswordRef.current || '').trim();
 
     // 1. Mandatory fields check
     if (!nome.trim() || !cognome.trim() || !email.trim() || !pwd || !confirmPwd) {
@@ -132,13 +137,13 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     // 2. Email format validation
     const emailRegex = /^[A-Za-z0-9+_.-]+@(.+)$/;
     if (!emailRegex.test(email.trim())) {
-      setErrorMessage('formato email non valido');
+      setErrorMessage('Formato email non valido');
       return;
     }
 
     // 3. Passwords match validation
     if (pwd !== confirmPwd) {
-      setErrorMessage('le password non coincidono');
+      setErrorMessage('Le password non coincidono');
       return;
     }
 
@@ -202,7 +207,17 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
           >
             {/* Header Title inside Screen */}
             {mode !== 'success' && (
-              <View className="mb-6">
+              <View className="mb-6 flex-row items-center gap-2">
+                {mode === 'register' && (
+                  <TouchableOpacity onPress={() => setMode('login')} className="mr-1">
+                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
+                {mode === 'forgot' && (
+                  <TouchableOpacity onPress={() => setMode('login')} className="mr-1">
+                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                )}
                 <Text className="text-3xl font-extrabold text-white tracking-tight">
                   {mode === 'login' && 'Accedi'}
                   {mode === 'register' && 'Registrati'}
@@ -211,19 +226,18 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
               </View>
             )}
 
-            {/* Error Message banner */}
-            {errorMessage ? (
-              <View className="bg-red-500/10 border border-red-500/20 p-3.5 rounded-xl mb-6 w-full">
-                <Text className="text-red-500 text-xs font-semibold text-center">{errorMessage}</Text>
-              </View>
-            ) : null}
-
-            {/* Success Message banner */}
-            {successMessage ? (
-              <View className="bg-accentCyan/10 border border-accentCyan/20 p-3.5 rounded-xl mb-6 w-full">
-                <Text className="text-accentCyan text-xs font-semibold text-center">{successMessage}</Text>
-              </View>
-            ) : null}
+            {/* Space reserved for Error/Success Message banner to prevent layout shifts */}
+            <View className="h-[52px] mb-6 w-full justify-center items-start">
+              {errorMessage ? (
+                <View className="bg-red-500/10 border border-red-500/20 px-4 py-2.5 rounded-xl self-start">
+                  <Text className="text-red-500 text-xs font-semibold">{errorMessage}</Text>
+                </View>
+              ) : successMessage ? (
+                <View className="bg-accentCyan/10 border border-accentCyan/20 px-4 py-2.5 rounded-xl self-start">
+                  <Text className="text-accentCyan text-xs font-semibold">{successMessage}</Text>
+                </View>
+              ) : null}
+            </View>
 
             {/* Form Content */}
             {mode === 'login' && (
@@ -233,10 +247,13 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
                   <TextInput
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !loginEmail.trim() ? 'border-red-500' : 'border-inputBorder'
+                      submitted && !modifiedFields.loginEmail && !loginEmail.trim() ? 'border-red-500' : 'border-inputBorder'
                     }`}
                     value={loginEmail}
-                    onChangeText={setLoginEmail}
+                    onChangeText={(text) => {
+                      setLoginEmail(text);
+                      setModifiedFields(prev => ({ ...prev, loginEmail: true }));
+                    }}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     scrollEnabled={false}
@@ -249,9 +266,12 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   <TextInput
                     key={`login_password_${mode}`}
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !loginPasswordRef.current ? 'border-red-500' : 'border-inputBorder'
+                      submitted && !modifiedFields.loginPassword && !loginPasswordRef.current ? 'border-red-500' : 'border-inputBorder'
                     }`}
-                    onChangeText={(text) => { loginPasswordRef.current = text; }}
+                    onChangeText={(text) => {
+                      loginPasswordRef.current = text;
+                      setModifiedFields(prev => ({ ...prev, loginPassword: true }));
+                    }}
                     secureTextEntry
                     autoCapitalize="none"
                     scrollEnabled={false}
@@ -292,15 +312,18 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   </TouchableOpacity>
                 </View>
 
-                {/* Nome */}
+                 {/* Nome */}
                 <View className="mb-5 w-full">
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Nome</Text>
                   <TextInput
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !nome.trim() ? 'border-red-500' : 'border-inputBorder'
+                      submitted && !modifiedFields.nome && !nome.trim() ? 'border-red-500' : 'border-inputBorder'
                     }`}
                     value={nome}
-                    onChangeText={setNome}
+                    onChangeText={(text) => {
+                      setNome(text);
+                      setModifiedFields(prev => ({ ...prev, nome: true }));
+                    }}
                     autoCapitalize="words"
                     scrollEnabled={false}
                   />
@@ -311,10 +334,13 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Cognome</Text>
                   <TextInput
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !cognome.trim() ? 'border-red-500' : 'border-inputBorder'
+                      submitted && !modifiedFields.cognome && !cognome.trim() ? 'border-red-500' : 'border-inputBorder'
                     }`}
                     value={cognome}
-                    onChangeText={setCognome}
+                    onChangeText={(text) => {
+                      setCognome(text);
+                      setModifiedFields(prev => ({ ...prev, cognome: true }));
+                    }}
                     autoCapitalize="words"
                     scrollEnabled={false}
                   />
@@ -325,10 +351,16 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
                   <TextInput
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !email.trim() ? 'border-red-500' : 'border-inputBorder'
+                      (submitted && !modifiedFields.email && (!email.trim() || !/^[A-Za-z0-9+_.-]+@(.+)$/.test(email.trim()))) || (errorMessage === 'Email già in uso' && mode === 'register' && !modifiedFields.email) ? 'border-red-500' : 'border-inputBorder'
                     }`}
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={(text) => {
+                      setEmail(text);
+                      setModifiedFields(prev => ({ ...prev, email: true }));
+                      if (errorMessage === 'Email già in uso' && mode === 'register') {
+                        setErrorMessage('');
+                      }
+                    }}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     scrollEnabled={false}
@@ -341,9 +373,15 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   <TextInput
                     key={`password_${mode}`}
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !passwordRef.current ? 'border-red-500' : 'border-inputBorder'
+                      (submitted && !modifiedFields.password && !(passwordRef.current || '').trim()) || (errorMessage === 'Le password non coincidono' && mode === 'register') ? 'border-red-500' : 'border-inputBorder'
                     }`}
-                    onChangeText={(text) => { passwordRef.current = text; }}
+                    onChangeText={(text) => {
+                      passwordRef.current = text;
+                      setModifiedFields(prev => ({ ...prev, password: true }));
+                      if (errorMessage === 'Le password non coincidono' && mode === 'register') {
+                        setErrorMessage('');
+                      }
+                    }}
                     secureTextEntry
                     autoCapitalize="none"
                     scrollEnabled={false}
@@ -358,9 +396,15 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   <TextInput
                     key={`confirmPassword_${mode}`}
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !confirmPasswordRef.current ? 'border-red-500' : 'border-inputBorder'
+                      (submitted && !modifiedFields.confirmPassword && !(confirmPasswordRef.current || '').trim()) || (errorMessage === 'Le password non coincidono' && mode === 'register') ? 'border-red-500' : 'border-inputBorder'
                     }`}
-                    onChangeText={(text) => { confirmPasswordRef.current = text; }}
+                    onChangeText={(text) => {
+                      confirmPasswordRef.current = text;
+                      setModifiedFields(prev => ({ ...prev, confirmPassword: true }));
+                      if (errorMessage === 'Le password non coincidono' && mode === 'register') {
+                        setErrorMessage('');
+                      }
+                    }}
                     secureTextEntry
                     autoCapitalize="none"
                     scrollEnabled={false}

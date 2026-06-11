@@ -236,6 +236,7 @@ export default function App() {
             <ProfileScreen
               user={currentUser}
               onLogout={handleLogout}
+              onUpdateUser={setCurrentUser}
             />
           ) : (
             <AuthScreen
