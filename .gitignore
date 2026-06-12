@@ -42,6 +42,7 @@ backend/target/
 backend/.mvn/
 backend/*.jar
 backend/*.war
+backend/src/main/resources/application.properties
 
 # Database (Postgres volumes)
 database/pgdata/
