@@ -4,6 +4,7 @@ import com.mondopt.dto.RegistrazioneRequest;
 import com.mondopt.dto.LoginRequest;
 import com.mondopt.entity.Utente;
 import com.mondopt.repository.UtenteRepository;
+import com.mondopt.service.FileStorageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +20,9 @@ public class AuthController {
 
     @Autowired
     private UtenteRepository utenteRepository;
+
+    @Autowired
+    private FileStorageService fileStorageService;
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
         "^[A-Za-z0-9+_.-]+@(.+)$"
@@ -60,6 +64,7 @@ public class AuthController {
         utente.setPeso(request.getPeso());
         utente.setAltezza(request.getAltezza());
         utente.setGenere(request.getGenere());
+        utente.setUrlImmagineProfilo(request.getUrlImmagineProfilo());
 
         utenteRepository.save(utente);
 
@@ -148,6 +153,23 @@ public class AuthController {
         utente.setPeso(request.getPeso());
         utente.setAltezza(request.getAltezza());
         utente.setGenere(request.getGenere());
+
+        // Delete old profile image from S3 if it changed
+        String oldUrl = utente.getUrlImmagineProfilo();
+        String newUrl = request.getUrlImmagineProfilo();
+        if (oldUrl != null && !oldUrl.trim().isEmpty() && !oldUrl.equals(newUrl)) {
+            int index = oldUrl.indexOf("immagini-profilo/");
+            if (index != -1) {
+                String oldKey = oldUrl.substring(index);
+                try {
+                    fileStorageService.delete(oldKey);
+                } catch (Exception e) {
+                    System.err.println("Warning: failed to delete old profile image from S3: " + oldKey);
+                    e.printStackTrace();
+                }
+            }
+        }
+        utente.setUrlImmagineProfilo(newUrl);
 
         utenteRepository.save(utente);
 

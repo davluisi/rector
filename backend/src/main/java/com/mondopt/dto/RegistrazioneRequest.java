@@ -17,4 +17,5 @@ public class RegistrazioneRequest {
     private BigDecimal peso;
     private BigDecimal altezza;
     private Genere genere;
+    private String urlImmagineProfilo;
 }

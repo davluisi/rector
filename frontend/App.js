@@ -261,7 +261,7 @@ export default function App() {
           activeOpacity={0.7}
           onPress={() => setActiveTab('barbell')}
         >
-          <Ionicons name="barbell-outline" size={28} color={activeTab === 'barbell' ? '#00F0FF' : '#71717A'} />
+          <Ionicons name="barbell-outline" size={32} color={activeTab === 'barbell' ? '#FFFFFF' : '#71717A'} />
         </TouchableOpacity>
 
         {/* Network/World tab */}
@@ -270,15 +270,15 @@ export default function App() {
           activeOpacity={0.7}
           onPress={() => setActiveTab('world')}
         >
-          <Ionicons name="earth-outline" size={26} color={activeTab === 'world' ? '#00F0FF' : '#71717A'} />
+          <Ionicons name="earth-outline" size={32} color={activeTab === 'world' ? '#FFFFFF' : '#71717A'} />
         </TouchableOpacity>
 
         {/* User profile tab */}
         <View>
           {currentUser ? (
             <TouchableOpacity 
-              className={`w-9 h-9 rounded-full justify-center items-center overflow-hidden border ${
-                activeTab === 'profile' ? 'border-accentCyan bg-[#24242C]' : 'border-[#303038]'
+              className={`w-11 h-11 rounded-full justify-center items-center overflow-hidden ${
+                activeTab === 'profile' ? 'border-2 border-white bg-[#24242C]' : 'border border-[#303038]'
               }`}
               activeOpacity={0.7}
               onPress={() => {
@@ -288,13 +288,13 @@ export default function App() {
               {currentUser.urlImmagineProfilo ? (
                 <Image source={{ uri: currentUser.urlImmagineProfilo }} className="w-full h-full" />
               ) : (
-                <Ionicons name="person-outline" size={20} color={activeTab === 'profile' ? '#00F0FF' : '#71717A'} />
+                <Ionicons name="person-outline" size={24} color={activeTab === 'profile' ? '#FFFFFF' : '#71717A'} />
               )}
             </TouchableOpacity>
           ) : (
             <TouchableOpacity 
-              className={`w-9 h-9 rounded-full justify-center items-center border bg-[#1E1E24] ${
-                activeTab === 'profile' ? 'border-accentCyan' : 'border-[#303038]'
+              className={`w-11 h-11 rounded-full justify-center items-center bg-[#1E1E24] ${
+                activeTab === 'profile' ? 'border-2 border-white' : 'border border-[#303038]'
               }`}
               activeOpacity={0.7}
               onPress={() => {
@@ -302,7 +302,7 @@ export default function App() {
                 setActiveTab('profile');
               }}
             >
-              <Ionicons name="person-outline" size={20} color={activeTab === 'profile' ? '#00F0FF' : '#71717A'} />
+              <Ionicons name="person-outline" size={24} color={activeTab === 'profile' ? '#FFFFFF' : '#71717A'} />
             </TouchableOpacity>
           )}
         </View>

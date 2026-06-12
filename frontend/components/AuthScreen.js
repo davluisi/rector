@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 // Local network backend URL (Expo compatible)
 const API_URL = 'http://192.168.1.180:8080';
@@ -26,6 +27,55 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
   const [altezza, setAltezza] = useState('');
   const [selectedGender, setSelectedGender] = useState(null); // 'MASCHIO' | 'FEMMINA' | 'ALTRO'
   const [profileImage, setProfileImage] = useState(null);
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Permesso per accedere alla galleria negato.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      const filename = uri.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+
+      const formData = new FormData();
+      formData.append('file', { uri, name: filename, type });
+
+      try {
+        setErrorMessage('');
+        setSuccessMessage('Caricamento immagine...');
+        const uploadResponse = await fetch(`${API_URL}/api/files/upload-immagine-profilo`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        const uploadData = await uploadResponse.json();
+        if (uploadResponse.ok) {
+          setProfileImage(uploadData.url);
+          setSuccessMessage('Immagine caricata');
+          setTimeout(() => setSuccessMessage(''), 2000);
+        } else {
+          setErrorMessage(uploadData.errore || 'Errore caricamento immagine');
+        }
+      } catch (error) {
+        console.error(error);
+        setErrorMessage('Impossibile caricare l\'immagine sul server');
+      }
+    }
+  };
 
   // Form inputs states (Login)
   const [loginEmail, setLoginEmail] = useState('');
@@ -162,6 +212,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
           peso: peso.trim() ? parseFloat(peso.replace(',', '.')) : null,
           altezza: altezza.trim() ? parseFloat(altezza.replace(',', '.')) : null,
           genere: selectedGender,
+          urlImmagineProfilo: profileImage,
         }),
       });
 
@@ -301,6 +352,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   <TouchableOpacity 
                     className="w-20 h-20 rounded-full bg-inputDark border border-inputBorder justify-center items-center overflow-hidden"
                     activeOpacity={0.8}
+                    onPress={handlePickImage}
                   >
                     {profileImage ? (
                       <Image source={{ uri: profileImage }} className="w-full h-full" />

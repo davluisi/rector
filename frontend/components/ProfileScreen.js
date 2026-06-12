@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 
 const API_URL = 'http://192.168.1.180:8080';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -47,6 +48,55 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   const [altezza, setAltezza] = useState('');
   const [selectedGender, setSelectedGender] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      alert('Permesso per accedere alla galleria negato.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      const filename = uri.split('/').pop();
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : `image`;
+
+      const formData = new FormData();
+      formData.append('file', { uri, name: filename, type });
+
+      try {
+        setErrorMessage('');
+        setSuccessMessage('Caricamento immagine...');
+        const uploadResponse = await fetch(`${API_URL}/api/files/upload-immagine-profilo`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        const uploadData = await uploadResponse.json();
+        if (uploadResponse.ok) {
+          setProfileImage(uploadData.url);
+          setSuccessMessage('Immagine caricata');
+          setTimeout(() => setSuccessMessage(''), 2000);
+        } else {
+          setErrorMessage(uploadData.errore || 'Errore caricamento immagine');
+        }
+      } catch (error) {
+        console.error(error);
+        setErrorMessage('Impossibile caricare l\'immagine sul server');
+      }
+    }
+  };
 
   // Refs and key state for Changing Password to enable resetting uncontrolled inputs
   const passwordAttualeRef = useRef('');
@@ -153,6 +203,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           peso: peso.trim() ? parseFloat(peso.replace(',', '.')) : null,
           altezza: altezza.trim() ? parseFloat(altezza.replace(',', '.')) : null,
           genere: selectedGender,
+          urlImmagineProfilo: profileImage,
         }),
       });
 
@@ -304,7 +355,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             <View className="flex-row justify-between gap-3 mb-6">
               {user.peso ? (
                 <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-3xl p-4 items-center h-24 justify-center">
-                  <Ionicons name="scale-outline" size={20} color="#00F0FF" className="mb-1" />
+                  <Ionicons name="scale-outline" size={20} color="#FFFFFF" className="mb-1" />
                   <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Peso</Text>
                   <Text className="text-white text-base font-bold">{user.peso} kg</Text>
                 </View>
@@ -313,7 +364,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
               )}
               {user.altezza ? (
                 <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-3xl p-4 items-center h-24 justify-center">
-                  <Ionicons name="resize-outline" size={20} color="#00F0FF" className="mb-1" />
+                  <Ionicons name="resize-outline" size={20} color="#FFFFFF" className="mb-1" />
                   <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Altezza</Text>
                   <Text className="text-white text-base font-bold">{user.altezza} cm</Text>
                 </View>
@@ -328,7 +379,10 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
                       user.genere === 'FEMMINA' ? 'woman-outline' : 'person-outline'
                     } 
                     size={20} 
-                    color="#00F0FF" 
+                    color={
+                      user.genere === 'FEMMINA' ? '#FF2E93' :
+                      user.genere === 'MASCHIO' ? '#00F0FF' : '#FFFFFF'
+                    } 
                     className="mb-1" 
                   />
                   <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Genere</Text>
@@ -343,21 +397,14 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           )}
 
           {/* Account Settings / Actions */}
-          <View className="bg-inputDark border border-inputBorder rounded-3xl overflow-hidden mb-6">
-            <TouchableOpacity 
-              className="flex-row items-center justify-between p-4"
-              activeOpacity={0.7}
-              onPress={() => setCurrentScreen('edit')}
-            >
-              <View className="flex-row items-center gap-3">
-                <View className="w-8 h-8 rounded-xl bg-[#24242C] items-center justify-center">
-                  <Ionicons name="create-outline" size={18} color="#00F0FF" />
-                </View>
-                <Text className="text-zinc-300 text-sm font-semibold">Modifica Profilo</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#71717A" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            className="bg-inputDark border border-inputBorder h-12 rounded-xl justify-center items-center flex-row gap-2 mb-6"
+            activeOpacity={0.7}
+            onPress={() => setCurrentScreen('edit')}
+          >
+            <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+            <Text className="text-zinc-300 text-[15px] font-bold">Modifica Profilo</Text>
+          </TouchableOpacity>
 
           {/* Logout Button */}
           <TouchableOpacity 
@@ -400,11 +447,15 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
                 Modifica profilo
               </Text>
             </View>
-            {/* Space reserved for Error Message banner to prevent layout shifts */}
+            {/* Space reserved for Error/Success Message banner to prevent layout shifts */}
             <View className="h-[52px] mb-6 w-full justify-center items-start">
               {errorMessage && currentScreen === 'edit' ? (
                 <View className="bg-red-500/10 border border-red-500/20 px-4 py-2.5 rounded-xl self-start">
                   <Text className="text-red-500 text-xs font-semibold">{errorMessage}</Text>
+                </View>
+              ) : successMessage && currentScreen === 'edit' ? (
+                <View className="bg-accentCyan/10 border border-accentCyan/20 px-4 py-2.5 rounded-xl self-start">
+                  <Text className="text-accentCyan text-xs font-semibold">{successMessage}</Text>
                 </View>
               ) : null}
             </View>
@@ -416,6 +467,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
                 <TouchableOpacity 
                   className="w-20 h-20 rounded-full bg-inputDark border border-inputBorder justify-center items-center overflow-hidden"
                   activeOpacity={0.8}
+                  onPress={handlePickImage}
                 >
                   {profileImage ? (
                     <Image source={{ uri: profileImage }} className="w-full h-full" />
@@ -547,20 +599,13 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
                 </View>
               </View>
 
-              {/* Success Message replaces Submit Button to prevent layout shifting */}
-              {successMessage && currentScreen === 'edit' ? (
-                <View className="bg-accentCyan/10 border border-accentCyan/20 h-12 rounded-xl justify-center items-center mt-2 w-full">
-                  <Text className="text-accentCyan text-[15px] font-bold text-center">{successMessage}</Text>
-                </View>
-              ) : (
-                <TouchableOpacity 
-                  className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
-                  activeOpacity={0.8}
-                  onPress={handleSave}
-                >
-                  <Text className="text-zinc-950 text-[15px] font-bold">Salva Modifiche</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity 
+                className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
+                activeOpacity={0.8}
+                onPress={handleSave}
+              >
+                <Text className="text-zinc-950 text-[15px] font-bold">Salva Modifiche</Text>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
