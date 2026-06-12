@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="0002-modifica-struttura-utente-e-tabelle-atleta-pt" author="mondopt">
+        <!-- 1. Crea tabella utente_atleta -->
+        <createTable tableName="utente_atleta">
+            <column name="id_utente" type="BIGINT">
+                <constraints primaryKey="true" nullable="false" foreignKeyName="fk_utente_atleta_utente" referencedTableName="utente" referencedColumnNames="id" deleteCascade="true"/>
+            </column>
+            <column name="peso" type="NUMERIC(4,1)"/>
+            <column name="altezza" type="NUMERIC(4,1)"/>
+        </createTable>
+
+        <!-- 2. Crea tabella personal_trainer -->
+        <createTable tableName="personal_trainer">
+            <column name="id_utente" type="BIGINT">
+                <constraints primaryKey="true" nullable="false" foreignKeyName="fk_personal_trainer_utente" referencedTableName="utente" referencedColumnNames="id" deleteCascade="true"/>
+            </column>
+            <column name="verificato" type="BOOLEAN" defaultValueBoolean="false">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- 3. Migrazione dati esistenti -->
+        <sql>
+            INSERT INTO utente_atleta (id_utente, peso, altezza)
+            SELECT id, peso, altezza FROM utente;
+        </sql>
+
+        <!-- 4. Rimuovi colonne peso e altezza da utente -->
+        <dropColumn tableName="utente" columnName="peso"/>
+        <dropColumn tableName="utente" columnName="altezza"/>
+    </changeSet>
+
+</databaseChangeLog>

@@ -36,13 +36,37 @@ public class Utente {
     @Column(name = "data_nascita")
     private LocalDate dataNascita;
 
-    @Column(name = "peso", precision = 4, scale = 1)
-    private BigDecimal peso;
+    @OneToOne(mappedBy = "utente", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private UtenteAtleta atleta;
 
-    @Column(name = "altezza", precision = 4, scale = 1)
-    private BigDecimal altezza;
+    @OneToOne(mappedBy = "utente", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    private PersonalTrainer personalTrainer;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "genere", length = 20)
     private Genere genere;
+
+    public BigDecimal getPeso() {
+        return atleta != null ? atleta.getPeso() : null;
+    }
+
+    public void setPeso(BigDecimal peso) {
+        if (this.atleta == null) {
+            this.atleta = new UtenteAtleta();
+            this.atleta.setUtente(this);
+        }
+        this.atleta.setPeso(peso);
+    }
+
+    public BigDecimal getAltezza() {
+        return atleta != null ? atleta.getAltezza() : null;
+    }
+
+    public void setAltezza(BigDecimal altezza) {
+        if (this.atleta == null) {
+            this.atleta = new UtenteAtleta();
+            this.atleta.setUtente(this);
+        }
+        this.atleta.setAltezza(altezza);
+    }
 }

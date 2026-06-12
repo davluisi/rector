@@ -288,7 +288,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
 
           {/* User Card */}
           <View className="items-center bg-[#16161A]/60 border border-borderDark/40 rounded-3xl p-6 mb-6">
-            <View className="w-24 h-24 rounded-full bg-[#1E1E24] border-2 border-accentCyan justify-center items-center overflow-hidden mb-4 shadow-lg shadow-accentCyan/10">
+            <View className="w-24 h-24 rounded-full bg-[#1E1E24] border-2 border-white justify-center items-center overflow-hidden mb-4 shadow-lg shadow-white/10">
               {user.urlImmagineProfilo ? (
                 <Image source={{ uri: user.urlImmagineProfilo }} className="w-full h-full" />
               ) : (
@@ -301,34 +301,44 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
 
           {/* Physical Stats Section (Optional) */}
           {(user.peso || user.altezza || user.genere) && (
-            <View className="border border-borderDark/50 bg-[#16161A]/40 rounded-3xl p-5 mb-6">
-              <Text className="text-zinc-500 text-[11px] font-bold uppercase tracking-wider mb-4">Informazioni Fisiche</Text>
-              
-              <View className="flex-row justify-between gap-3">
-                {user.peso && (
-                  <View className="flex-1 bg-inputDark border border-inputBorder rounded-2xl p-4 items-center">
-                    <Ionicons name="fitness-outline" size={20} color="#00F0FF" className="mb-1" />
-                    <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Peso</Text>
-                    <Text className="text-white text-base font-bold">{user.peso} kg</Text>
-                  </View>
-                )}
-                {user.altezza && (
-                  <View className="flex-1 bg-inputDark border border-inputBorder rounded-2xl p-4 items-center">
-                    <Ionicons name="resize-outline" size={20} color="#00F0FF" className="mb-1" />
-                    <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Altezza</Text>
-                    <Text className="text-white text-base font-bold">{user.altezza} cm</Text>
-                  </View>
-                )}
-                {user.genere && (
-                  <View className="flex-1 bg-inputDark border border-inputBorder rounded-2xl p-4 items-center">
-                    <Ionicons name="people-outline" size={20} color="#00F0FF" className="mb-1" />
-                    <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Genere</Text>
-                    <Text className="text-white text-sm font-bold capitalize">
-                      {user.genere.toLowerCase()}
-                    </Text>
-                  </View>
-                )}
-              </View>
+            <View className="flex-row justify-between gap-3 mb-6">
+              {user.peso ? (
+                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-3xl p-4 items-center h-24 justify-center">
+                  <Ionicons name="scale-outline" size={20} color="#00F0FF" className="mb-1" />
+                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Peso</Text>
+                  <Text className="text-white text-base font-bold">{user.peso} kg</Text>
+                </View>
+              ) : (
+                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} />
+              )}
+              {user.altezza ? (
+                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-3xl p-4 items-center h-24 justify-center">
+                  <Ionicons name="resize-outline" size={20} color="#00F0FF" className="mb-1" />
+                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Altezza</Text>
+                  <Text className="text-white text-base font-bold">{user.altezza} cm</Text>
+                </View>
+              ) : (
+                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} />
+              )}
+              {user.genere ? (
+                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-3xl p-4 items-center h-24 justify-center">
+                  <Ionicons 
+                    name={
+                      user.genere === 'MASCHIO' ? 'man-outline' :
+                      user.genere === 'FEMMINA' ? 'woman-outline' : 'person-outline'
+                    } 
+                    size={20} 
+                    color="#00F0FF" 
+                    className="mb-1" 
+                  />
+                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Genere</Text>
+                  <Text className="text-white text-sm font-bold capitalize">
+                    {user.genere.toLowerCase()}
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} />
+              )}
             </View>
           )}
 
