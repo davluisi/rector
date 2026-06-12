@@ -5,22 +5,31 @@ import java.io.InputStream;
 public interface FileStorageService {
 
     /**
-     * Uploads a file that is publicly accessible (e.g. profile images, exercise videos).
+     * Uploads a user profile image (publicly accessible).
      * @param filename Name of the file
      * @param inputStream InputStream of the file content
-     * @param contentType Content type (e.g. image/jpeg, video/mp4)
-     * @return The public URL to access the file (via CloudFront if configured)
+     * @param contentType Content type (e.g. image/jpeg, image/png)
+     * @return The public URL to access the image (via CloudFront if configured)
      */
-    String uploadPublic(String filename, InputStream inputStream, String contentType);
+    String uploadImmagineProfilo(String filename, InputStream inputStream, String contentType);
 
     /**
-     * Uploads a file that is private (e.g. PT certifications).
+     * Uploads a PT exercise explanation video (publicly accessible).
+     * @param filename Name of the file
+     * @param inputStream InputStream of the file content
+     * @param contentType Content type (e.g. video/mp4)
+     * @return The public URL to access the video (via CloudFront if configured)
+     */
+    String uploadVideoEsercizio(String filename, InputStream inputStream, String contentType);
+
+    /**
+     * Uploads a PT personal document or certification (private).
      * @param filename Name of the file
      * @param inputStream InputStream of the file content
      * @param contentType Content type (e.g. application/pdf)
-     * @return The unique S3 key of the uploaded file
+     * @return The unique S3 key of the uploaded document under the documenti-pt/ prefix
      */
-    String uploadPrivate(String filename, InputStream inputStream, String contentType);
+    String uploadDocumentoPt(String filename, InputStream inputStream, String contentType);
 
     /**
      * Uploads a file that is temporary and will auto-expire after 30 days (e.g. user execution videos).

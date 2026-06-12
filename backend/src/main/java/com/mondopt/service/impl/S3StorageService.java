@@ -36,9 +36,9 @@ public class S3StorageService implements FileStorageService {
     }
 
     @Override
-    public String uploadPublic(String filename, InputStream inputStream, String contentType) {
+    public String uploadImmagineProfilo(String filename, InputStream inputStream, String contentType) {
         String uniqueName = generateUniqueName(filename);
-        String key = "public/" + uniqueName;
+        String key = "immagini-profilo/" + uniqueName;
         uploadToS3(key, inputStream, contentType);
 
         if (cloudFrontUrl != null && !cloudFrontUrl.trim().isEmpty()) {
@@ -51,9 +51,24 @@ public class S3StorageService implements FileStorageService {
     }
 
     @Override
-    public String uploadPrivate(String filename, InputStream inputStream, String contentType) {
+    public String uploadVideoEsercizio(String filename, InputStream inputStream, String contentType) {
         String uniqueName = generateUniqueName(filename);
-        String key = "private/" + uniqueName;
+        String key = "video-esercizi-pt/" + uniqueName;
+        uploadToS3(key, inputStream, contentType);
+
+        if (cloudFrontUrl != null && !cloudFrontUrl.trim().isEmpty()) {
+            String cleanCfUrl = cloudFrontUrl.endsWith("/") ? cloudFrontUrl : cloudFrontUrl + "/";
+            return cleanCfUrl + key;
+        }
+
+        // Fallback to S3 direct URL
+        return String.format("https://%s.s3.amazonaws.com/%s", bucketName, key);
+    }
+
+    @Override
+    public String uploadDocumentoPt(String filename, InputStream inputStream, String contentType) {
+        String uniqueName = generateUniqueName(filename);
+        String key = "documenti-pt/" + uniqueName;
         uploadToS3(key, inputStream, contentType);
         return key;
     }
