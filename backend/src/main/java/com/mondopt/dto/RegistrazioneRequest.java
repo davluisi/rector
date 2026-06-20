@@ -18,4 +18,6 @@ public class RegistrazioneRequest {
     private BigDecimal altezza;
     private Genere genere;
     private String urlImmagineProfilo;
+    private java.time.LocalDate dataNascita;
+    private String ruolo;
 }

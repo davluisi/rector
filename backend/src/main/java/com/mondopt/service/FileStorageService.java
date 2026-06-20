@@ -53,4 +53,11 @@ public interface FileStorageService {
      * @param key The S3 key of the file
      */
     void delete(String key);
+
+    /**
+     * Lists all keys in the S3 bucket with the specified prefix.
+     * @param prefix Prefix to filter keys by (e.g. "immagini-profilo/")
+     * @return List of S3 keys matching the prefix
+     */
+    java.util.List<String> listKeys(String prefix);
 }

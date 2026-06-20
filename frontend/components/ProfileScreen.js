@@ -1,10 +1,30 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, Dimensions } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, Dimensions, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 const API_URL = 'http://192.168.1.180:8080';
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const formatBirthDate = (dateStr) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  return `${parts[2]}/${parts[1]}/${parts[0]}`;
+};
+
+const calculateAge = (birthDateStr) => {
+  if (!birthDateStr) return 'N/D';
+  const birthDate = new Date(birthDateStr);
+  if (isNaN(birthDate.getTime())) return 'N/D';
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return `${age} anni`;
+};
 
 // Memoized PasswordInput component to guarantee the TextInput does not re-render
 // during parent updates, preventing immediate secureTextEntry character masking.
@@ -39,6 +59,8 @@ const PasswordInput = React.memo(({ label, error, onChangeText, textKey }) => {
 
 export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   const [currentScreen, setCurrentScreen] = useState('view'); // 'view' | 'edit' | 'password'
+  const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
 
   // Form states for Editing
   const [nome, setNome] = useState('');
@@ -48,6 +70,35 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   const [altezza, setAltezza] = useState('');
   const [selectedGender, setSelectedGender] = useState(null);
   const [profileImage, setProfileImage] = useState(null);
+  const [dataNascita, setDataNascita] = useState('');
+
+  const formatDateForEdit = (dateStr) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+  };
+
+  const parseDate = (dateStr) => {
+    const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    if (!regex.test(dateStr)) return null;
+    const match = dateStr.match(regex);
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const year = parseInt(match[3], 10);
+    if (month < 1 || month > 12) return null;
+    if (day < 1 || day > 31) return null;
+    const dateObj = new Date(year, month - 1, day);
+    if (dateObj.getFullYear() !== year || dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day) {
+      return null;
+    }
+    if (year < 1900 || year > new Date().getFullYear()) return null;
+    
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${year}-${pad(month)}-${pad(day)}`;
+  };
 
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -85,15 +136,45 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
 
         const uploadData = await uploadResponse.json();
         if (uploadResponse.ok) {
-          setProfileImage(uploadData.url);
-          setSuccessMessage('Immagine caricata');
-          setTimeout(() => setSuccessMessage(''), 2000);
+          const newImageUrl = uploadData.url;
+          setSuccessMessage('Salvataggio immagine...');
+          
+          const saveResponse = await fetch(`${API_URL}/api/auth/aggiorna/${user.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              nome: user.nome,
+              cognome: user.cognome,
+              email: user.email,
+              peso: user.peso,
+              altezza: user.altezza,
+              genere: user.genere,
+              urlImmagineProfilo: newImageUrl,
+            }),
+          });
+
+          const saveData = await saveResponse.json();
+          if (saveResponse.ok) {
+            setProfileImage(newImageUrl);
+            setSuccessMessage('Immagine aggiornata con successo');
+            if (onUpdateUser) {
+              onUpdateUser(saveData);
+            }
+          } else {
+            setErrorMessage(saveData.errore || 'Errore durante il salvataggio dell\'immagine');
+          }
+          setTimeout(() => {
+            setSuccessMessage('');
+            setErrorMessage('');
+          }, 2000);
         } else {
           setErrorMessage(uploadData.errore || 'Errore caricamento immagine');
         }
       } catch (error) {
         console.error(error);
-        setErrorMessage('Impossibile caricare l\'immagine sul server');
+        setErrorMessage('Impossibile caricare o salvare l\'immagine sul server');
       }
     }
   };
@@ -117,6 +198,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
 
   // Run transitions when currentScreen changes
   useEffect(() => {
+    Keyboard.dismiss();
     let targetView = 0;
     let targetEdit = SCREEN_WIDTH;
     let targetPassword = SCREEN_WIDTH;
@@ -165,72 +247,272 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
       setAltezza(user.altezza ? String(user.altezza) : '');
       setSelectedGender(user.genere || null);
       setProfileImage(user.urlImmagineProfilo || null);
+      setDataNascita(formatDateForEdit(user.dataNascita));
     }
   }, [user, currentScreen]);
 
+
+
   if (!user) return null;
 
-  const handleSave = async () => {
-    setSubmitted(true);
-    setModifiedFields({});
-    setErrorMessage('');
-    setSuccessMessage('');
+  const [editingField, setEditingField] = useState(null); // 'nome' | 'cognome' | 'email' | 'genere' | 'peso' | 'altezza'
+  const [editingValue, setEditingValue] = useState('');
+  const subPageTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
 
-    // 1. Mandatory fields check
-    if (!nome.trim() || !cognome.trim() || !email.trim()) {
-      setErrorMessage('Compila tutti i campi obbligatori');
-      return;
+  // Run transition for sub-page sliding
+  useEffect(() => {
+    if (editingField) {
+      Animated.timing(subPageTranslateX, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }).start();
     }
+  }, [editingField]);
 
-    // 2. Email format validation
-    const emailRegex = /^[A-Za-z0-9+_.-]+@(.+)$/;
-    if (!emailRegex.test(email.trim())) {
-      setErrorMessage('Formato email non valido');
-      return;
-    }
+  const handleCancelSubPage = () => {
+    Animated.timing(subPageTranslateX, {
+      toValue: SCREEN_WIDTH,
+      duration: 250,
+      useNativeDriver: true,
+    }).start(() => {
+      setEditingField(null);
+      setSubmitted(false);
+      setErrorMessage('');
+      setSuccessMessage('');
+      setIsVerifyingEmailOtp(false);
+      setOtpCode('');
+    });
+  };
 
-    // 3. Send request to backend
+  const handleRemoveImage = async () => {
     try {
+      setErrorMessage('');
+      setSuccessMessage('Rimozione immagine...');
       const response = await fetch(`${API_URL}/api/auth/aggiorna/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          nome: nome.trim(),
-          cognome: cognome.trim(),
-          email: email.trim().toLowerCase(),
-          peso: peso.trim() ? parseFloat(peso.replace(',', '.')) : null,
-          altezza: altezza.trim() ? parseFloat(altezza.replace(',', '.')) : null,
-          genere: selectedGender,
-          urlImmagineProfilo: profileImage,
+          nome: user.nome,
+          cognome: user.cognome,
+          email: user.email,
+          peso: user.peso,
+          altezza: user.altezza,
+          genere: user.genere,
+          urlImmagineProfilo: null,
         }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        if (data && data.errore) {
-          setErrorMessage(data.errore);
-        } else {
-          setErrorMessage('Errore durante il salvataggio');
-        }
+        setErrorMessage(data.errore || 'Errore durante la rimozione dell\'immagine');
         return;
       }
 
-      // Success
-      setSuccessMessage('Profilo modificato con successo');
+      setProfileImage(null);
+      setSuccessMessage('Immagine rimossa');
       if (onUpdateUser) {
         onUpdateUser(data);
       }
       setTimeout(() => {
-        setCurrentScreen('view');
-        setSubmitted(false);
-        setErrorMessage('');
         setSuccessMessage('');
+      }, 2000);
+    } catch (error) {
+      setErrorMessage('Impossibile connettersi al server');
+      console.error(error);
+    }
+  };
+
+  const handleSaveField = async () => {
+    setSubmitted(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (editingField === 'nome' && !editingValue.trim()) {
+      setErrorMessage('Il nome è obbligatorio');
+      return;
+    }
+    if (editingField === 'cognome' && !editingValue.trim()) {
+      setErrorMessage('Il cognome è obbligatorio');
+      return;
+    }
+    if (editingField === 'dataNascita') {
+      if (!editingValue.trim()) {
+        setErrorMessage('La data di nascita è obbligatoria');
+        return;
+      }
+      const formattedDate = parseDate(editingValue.trim());
+      if (!formattedDate) {
+        setErrorMessage('Data di nascita non valida (formato GG/MM/AAAA)');
+        return;
+      }
+    }
+    if (editingField === 'email') {
+      const cleanEmail = editingValue.trim().toLowerCase();
+      if (!cleanEmail) {
+        setErrorMessage('L\'email è obbligatoria');
+        return;
+      }
+      const emailRegex = /^[A-Za-z0-9+_.-]+@(.+)$/;
+      if (!emailRegex.test(cleanEmail)) {
+        setErrorMessage('Formato email non valido');
+        return;
+      }
+
+      // If email changed and we haven't started OTP verification yet
+      if (cleanEmail !== user.email && !isVerifyingEmailOtp) {
+        try {
+          setSuccessMessage('Invio codice OTP in corso...');
+          const response = await fetch(`${API_URL}/api/auth/invia-otp`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: cleanEmail }),
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            setErrorMessage(data.errore || 'Errore durante l\'invio del codice OTP');
+            return;
+          }
+
+          setSuccessMessage('Codice inviato correttamente!');
+          setOtpCode('');
+          setSubmitted(false);
+          setTimeout(() => {
+            setSuccessMessage('');
+            setIsVerifyingEmailOtp(true);
+          }, 800);
+          return;
+        } catch (error) {
+          setErrorMessage('Impossibile inviare il codice di verifica');
+          console.error(error);
+          return;
+        }
+      }
+    }
+
+    await executeSaveField();
+  };
+
+  const executeSaveField = async () => {
+    const formattedDate = editingField === 'dataNascita' ? parseDate(editingValue.trim()) : user.dataNascita;
+    const body = {
+      nome: editingField === 'nome' ? editingValue.trim() : user.nome,
+      cognome: editingField === 'cognome' ? editingValue.trim() : user.cognome,
+      email: editingField === 'email' ? editingValue.trim().toLowerCase() : user.email,
+      peso: editingField === 'peso' ? (editingValue.trim() ? parseFloat(editingValue.replace(',', '.')) : null) : user.peso,
+      altezza: editingField === 'altezza' ? (editingValue.trim() ? parseFloat(editingValue.replace(',', '.')) : null) : user.altezza,
+      genere: editingField === 'genere' ? editingValue : user.genere,
+      urlImmagineProfilo: user.urlImmagineProfilo,
+      dataNascita: formattedDate,
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/aggiorna/${user.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(data.errore || 'Errore durante il salvataggio');
+        return;
+      }
+
+      setSuccessMessage('Profilo modificato con successo');
+      if (onUpdateUser) {
+        onUpdateUser(data);
+      }
+
+      if (editingField === 'nome') setNome(data.nome);
+      else if (editingField === 'cognome') setCognome(data.cognome);
+      else if (editingField === 'email') setEmail(data.email);
+      else if (editingField === 'dataNascita') setDataNascita(formatDateForEdit(data.dataNascita));
+      else if (editingField === 'peso') setPeso(data.peso ? String(data.peso) : '');
+      else if (editingField === 'altezza') setAltezza(data.altezza ? String(data.altezza) : '');
+      else if (editingField === 'genere') setSelectedGender(data.genere || null);
+
+      setTimeout(() => {
+        handleCancelSubPage();
       }, 1200);
     } catch (error) {
       setErrorMessage('Impossibile connettersi al server');
+      console.error(error);
+    }
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    setSubmitted(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (otpCode.length < 4) {
+      setErrorMessage('Inserisci il codice di 4 cifre');
+      return;
+    }
+
+    try {
+      const cleanEmail = editingValue.trim().toLowerCase();
+      const response = await fetch(`${API_URL}/api/auth/verifica-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: cleanEmail,
+          codice: otpCode.trim(),
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorMessage(data.errore || 'Codice errato o scaduto');
+        return;
+      }
+
+      setSuccessMessage('Email verificata con successo!');
+      setSubmitted(false);
+      
+      // Save to database
+      await executeSaveField();
+    } catch (error) {
+      setErrorMessage('Impossibile connettersi al server');
+      console.error(error);
+    }
+  };
+
+  const handleResendEmailOtp = async () => {
+    setErrorMessage('');
+    setSuccessMessage('Rinvio codice OTP...');
+    try {
+      const response = await fetch(`${API_URL}/api/auth/invia-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: editingValue.trim().toLowerCase() }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorMessage(data.errore || 'Errore durante l\'invio del codice OTP');
+        return;
+      }
+
+      setSuccessMessage('Codice inviato nuovamente!');
+      setOtpCode('');
+      setTimeout(() => setSuccessMessage(''), 2000);
+    } catch (error) {
+      setErrorMessage('Impossibile inviare il codice di verifica');
       console.error(error);
     }
   };
@@ -328,18 +610,23 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           transform: [{ translateX: viewTranslateX }],
         }}
       >
+        {/* Header locale per Profilo */}
+        <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+          <View className="w-10" />
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-bold text-white tracking-tight">Profilo</Text>
+          </View>
+          <View className="w-10" />
+        </View>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
         >
-          {/* Title */}
-          <View className="mb-8">
-            <Text className="text-3xl font-extrabold text-white tracking-tight">Profilo</Text>
-          </View>
+          <View className="mt-2" />
 
           {/* User Card */}
           <View className="items-center bg-[#16161A]/60 border border-borderDark/40 rounded-3xl p-6 mb-6">
-            <View className="w-24 h-24 rounded-full bg-[#1E1E24] border-2 border-white justify-center items-center overflow-hidden mb-4 shadow-lg shadow-white/10">
+            <View className="w-24 h-24 rounded-full bg-[#1E1E24] justify-center items-center overflow-hidden mb-4 shadow-lg shadow-black/40">
               {user.urlImmagineProfilo ? (
                 <Image source={{ uri: user.urlImmagineProfilo }} className="w-full h-full" />
               ) : (
@@ -350,51 +637,57 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             <Text className="text-zinc-400 text-sm mt-1">{user.email}</Text>
           </View>
 
-          {/* Physical Stats Section (Optional) */}
-          {(user.peso || user.altezza || user.genere) && (
-            <View className="flex-row justify-between gap-3 mb-6">
-              {user.peso ? (
-                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-3xl p-4 items-center h-24 justify-center">
-                  <Ionicons name="scale-outline" size={20} color="#FFFFFF" className="mb-1" />
-                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Peso</Text>
-                  <Text className="text-white text-base font-bold">{user.peso} kg</Text>
-                </View>
-              ) : (
-                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} />
-              )}
-              {user.altezza ? (
-                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-3xl p-4 items-center h-24 justify-center">
-                  <Ionicons name="resize-outline" size={20} color="#FFFFFF" className="mb-1" />
-                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Altezza</Text>
-                  <Text className="text-white text-base font-bold">{user.altezza} cm</Text>
-                </View>
-              ) : (
-                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} />
-              )}
-              {user.genere ? (
-                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-3xl p-4 items-center h-24 justify-center">
-                  <Ionicons 
-                    name={
-                      user.genere === 'MASCHIO' ? 'man-outline' :
-                      user.genere === 'FEMMINA' ? 'woman-outline' : 'person-outline'
-                    } 
-                    size={20} 
-                    color={
-                      user.genere === 'FEMMINA' ? '#FF2E93' :
-                      user.genere === 'MASCHIO' ? '#00F0FF' : '#FFFFFF'
-                    } 
-                    className="mb-1" 
-                  />
-                  <Text className="text-zinc-400 text-[10px] font-bold uppercase tracking-wider mb-1">Genere</Text>
-                  <Text className="text-white text-sm font-bold capitalize">
-                    {user.genere.toLowerCase()}
-                  </Text>
-                </View>
-              ) : (
-                <View style={{ width: (SCREEN_WIDTH - 72) / 3 }} />
-              )}
+          {/* Profile Details Grid */}
+          <View className="flex-row flex-wrap justify-between gap-3 mb-6">
+            {/* Box Età */}
+            <View style={{ width: (SCREEN_WIDTH - 60) / 2 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-2xl p-4 items-center h-24 justify-center">
+              <Ionicons name="calendar-outline" size={22} color="#FFFFFF" className="mb-1" />
+              <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Età</Text>
+              <Text className="text-white text-[15px] font-bold">{calculateAge(user.dataNascita)}</Text>
             </View>
-          )}
+
+            {/* Box Genere */}
+            <View style={{ width: (SCREEN_WIDTH - 60) / 2 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-2xl p-4 items-center h-24 justify-center">
+              <Ionicons 
+                name={
+                  user.genere === 'MASCHIO' ? 'man-outline' :
+                  user.genere === 'FEMMINA' ? 'woman-outline' : 'person-outline'
+                } 
+                size={22} 
+                color={
+                  user.genere === 'FEMMINA' ? '#FF2E93' :
+                  user.genere === 'MASCHIO' ? '#00F0FF' : '#FFFFFF'
+                } 
+                className="mb-1" 
+              />
+              <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Genere</Text>
+              <Text className="text-white text-[15px] font-bold capitalize">
+                {user.genere ? user.genere.toLowerCase() : 'N/D'}
+              </Text>
+            </View>
+
+            {/* Box Peso (Only for Atleta) */}
+            {user.ruolo === 'ATLETA' && (
+              <View style={{ width: (SCREEN_WIDTH - 60) / 2 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-2xl p-4 items-center h-24 justify-center">
+                <Ionicons name="scale-outline" size={22} color="#FFFFFF" className="mb-1" />
+                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Peso</Text>
+                <Text className="text-white text-[15px] font-bold">
+                  {user.peso ? `${user.peso} kg` : 'N/D'}
+                </Text>
+              </View>
+            )}
+
+            {/* Box Altezza (Only for Atleta) */}
+            {user.ruolo === 'ATLETA' && (
+              <View style={{ width: (SCREEN_WIDTH - 60) / 2 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-2xl p-4 items-center h-24 justify-center">
+                <Ionicons name="resize-outline" size={22} color="#FFFFFF" className="mb-1" />
+                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Altezza</Text>
+                <Text className="text-white text-[15px] font-bold">
+                  {user.altezza ? `${user.altezza} cm` : 'N/D'}
+                </Text>
+              </View>
+            )}
+          </View>
 
           {/* Account Settings / Actions */}
           <TouchableOpacity 
@@ -429,186 +722,368 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           transform: [{ translateX: editTranslateX }],
         }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          className="flex-1"
+        {/* Header locale per Modifica Profilo */}
+        <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+          <View className="w-10 items-start">
+            <TouchableOpacity onPress={handleCancel} className="p-1">
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-bold text-white tracking-tight">Modifica profilo</Text>
+          </View>
+          <View className="w-10" />
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+          keyboardShouldPersistTaps="handled"
         >
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
-            keyboardShouldPersistTaps="handled"
-          >
-            {/* Header Title with Back Button */}
-            <View className="mb-6 flex-row items-center gap-2">
-              <TouchableOpacity onPress={handleCancel} className="mr-1">
-                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+          <View className="mt-2" />
+
+
+
+          {/* Profile Picture (Centered with Remove button below it) */}
+          <View className="items-center justify-center mb-8 w-full gap-3">
+            <TouchableOpacity 
+              className="w-24 h-24 rounded-full bg-inputDark border border-inputBorder justify-center items-center overflow-hidden shadow-lg shadow-black/30"
+              activeOpacity={0.8}
+              onPress={handlePickImage}
+            >
+              {profileImage ? (
+                <Image source={{ uri: profileImage }} className="w-full h-full" />
+              ) : (
+                <View className="items-center justify-center">
+                  <Ionicons name="camera-outline" size={32} color="#A1A1AA" />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            {profileImage && (
+              <TouchableOpacity 
+                onPress={handleRemoveImage}
+                className="bg-accentPink/10 border border-accentPink/20 py-1.5 px-4 rounded-xl mt-1"
+                activeOpacity={0.8}
+              >
+                <Text className="text-accentPink text-xs font-bold">Rimuovi immagine</Text>
               </TouchableOpacity>
-              <Text className="text-3xl font-extrabold text-white tracking-tight">
-                Modifica profilo
+            )}
+          </View>
+
+          {/* Clickable Fields List */}
+          <View className="w-full gap-3.5 mb-6">
+            {/* Nome */}
+            <TouchableOpacity 
+              onPress={() => { setEditingField('nome'); setEditingValue(nome); }} 
+              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+              activeOpacity={0.7}
+            >
+              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Nome</Text>
+              <Text className="text-white text-base font-semibold mt-1.5">{nome || 'N/D'}</Text>
+            </TouchableOpacity>
+
+            {/* Cognome */}
+            <TouchableOpacity 
+              onPress={() => { setEditingField('cognome'); setEditingValue(cognome); }} 
+              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+              activeOpacity={0.7}
+            >
+              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Cognome</Text>
+              <Text className="text-white text-base font-semibold mt-1.5">{cognome || 'N/D'}</Text>
+            </TouchableOpacity>
+
+            {/* Email */}
+            <TouchableOpacity 
+              onPress={() => { setEditingField('email'); setEditingValue(email); }} 
+              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+              activeOpacity={0.7}
+            >
+              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Email</Text>
+              <Text className="text-white text-base font-semibold mt-1.5">{email || 'N/D'}</Text>
+            </TouchableOpacity>
+
+            {/* Data di nascita */}
+            <TouchableOpacity 
+              onPress={() => { setEditingField('dataNascita'); setEditingValue(dataNascita); }} 
+              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+              activeOpacity={0.7}
+            >
+              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Data di nascita</Text>
+              <Text className="text-white text-base font-semibold mt-1.5">{dataNascita || 'N/D'}</Text>
+            </TouchableOpacity>
+
+            {/* Genere */}
+            <TouchableOpacity 
+              onPress={() => { setEditingField('genere'); setEditingValue(selectedGender); }} 
+              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+              activeOpacity={0.7}
+            >
+              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Genere</Text>
+              <Text className="text-white text-base font-semibold mt-1.5 capitalize">
+                {selectedGender ? selectedGender.toLowerCase() : 'N/D'}
               </Text>
-            </View>
-            {/* Space reserved for Error/Success Message banner to prevent layout shifts */}
-            <View className="h-[52px] mb-6 w-full justify-center items-start">
-              {errorMessage && currentScreen === 'edit' ? (
-                <View className="bg-red-500/10 border border-red-500/20 px-4 py-2.5 rounded-xl self-start">
-                  <Text className="text-red-500 text-xs font-semibold">{errorMessage}</Text>
-                </View>
-              ) : successMessage && currentScreen === 'edit' ? (
-                <View className="bg-accentCyan/10 border border-accentCyan/20 px-4 py-2.5 rounded-xl self-start">
-                  <Text className="text-accentCyan text-xs font-semibold">{successMessage}</Text>
-                </View>
-              ) : null}
+            </TouchableOpacity>
+
+            {/* Peso (Only for Atleta) */}
+            {user.ruolo === 'ATLETA' && (
+              <TouchableOpacity 
+                onPress={() => { setEditingField('peso'); setEditingValue(peso); }} 
+                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+                activeOpacity={0.7}
+              >
+                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Peso</Text>
+                <Text className="text-white text-base font-semibold mt-1.5">{peso ? `${peso} kg` : 'N/D'}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Altezza (Only for Atleta) */}
+            {user.ruolo === 'ATLETA' && (
+              <TouchableOpacity 
+                onPress={() => { setEditingField('altezza'); setEditingValue(altezza); }} 
+                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+                activeOpacity={0.7}
+              >
+                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Altezza</Text>
+                <Text className="text-white text-base font-semibold mt-1.5">{altezza ? `${altezza} cm` : 'N/D'}</Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Password Row */}
+            <TouchableOpacity 
+              onPress={() => setCurrentScreen('password')} 
+              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+              activeOpacity={0.7}
+            >
+              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Password</Text>
+              <Text className="text-white text-base font-semibold mt-1.5">••••••••</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+
+        {/* SUB-PAGE OVERLAY FOR SINGLE FIELD EDITING */}
+        {editingField && (
+          <Animated.View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              transform: [{ translateX: subPageTranslateX }],
+              backgroundColor: '#0D0D11',
+              zIndex: 100,
+            }}
+          >
+            {/* Header locale per Sub-page (always 'Modifica profilo') */}
+            <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+              <View className="w-10 items-start">
+                <TouchableOpacity onPress={handleCancelSubPage} className="p-1">
+                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+              <View className="flex-1 items-center">
+                <Text className="text-lg font-bold text-white tracking-tight">Modifica profilo</Text>
+              </View>
+              <View className="w-10" />
             </View>
 
-            {/* Form Content */}
-            <View className="w-full relative">
-              {/* Foto Profilo (Posizionata sopra il form, a destra del titolo) */}
-              <View style={{ position: 'absolute', right: 0, top: -72, zIndex: 10 }}>
-                <TouchableOpacity 
-                  className="w-20 h-20 rounded-full bg-inputDark border border-inputBorder justify-center items-center overflow-hidden"
-                  activeOpacity={0.8}
-                  onPress={handlePickImage}
-                >
-                  {profileImage ? (
-                    <Image source={{ uri: profileImage }} className="w-full h-full" />
-                  ) : (
-                    <View className="items-center justify-center">
-                      <Ionicons name="camera-outline" size={26} color="#A1A1AA" />
+            <KeyboardAvoidingView
+              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+              className="flex-1"
+            >
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+                keyboardShouldPersistTaps="handled"
+              >
+                <View className="mt-2" />
+
+                {/* Space reserved for Error/Success Message banner */}
+                <View className="h-[52px] mb-6 w-full justify-center items-start">
+                  {errorMessage && currentScreen === 'edit' && editingField ? (
+                    <View className="bg-red-500/10 border border-red-500/20 px-4 py-2.5 rounded-xl self-start">
+                      <Text className="text-red-500 text-xs font-semibold">{errorMessage}</Text>
                     </View>
-                  )}
-                </TouchableOpacity>
-              </View>
+                  ) : successMessage && currentScreen === 'edit' && editingField ? (
+                    <View className="bg-accentCyan/10 border border-accentCyan/20 px-4 py-2.5 rounded-xl self-start">
+                      <Text className="text-accentCyan text-xs font-semibold">{successMessage}</Text>
+                    </View>
+                  ) : null}
+                </View>
 
-              {/* Nome */}
-              <View className="mb-4 w-full">
-                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Nome</Text>
-                <TextInput
-                  className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                    submitted && !modifiedFields.nome && !nome.trim() ? 'border-red-500' : 'border-inputBorder'
-                  }`}
-                  value={nome}
-                  onChangeText={(text) => {
-                    setNome(text);
-                    setModifiedFields(prev => ({ ...prev, nome: true }));
-                  }}
-                  autoCapitalize="words"
-                  scrollEnabled={false}
-                />
-              </View>
-
-              {/* Cognome */}
-              <View className="mb-4 w-full">
-                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Cognome</Text>
-                <TextInput
-                  className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                    submitted && !modifiedFields.cognome && !cognome.trim() ? 'border-red-500' : 'border-inputBorder'
-                  }`}
-                  value={cognome}
-                  onChangeText={(text) => {
-                    setCognome(text);
-                    setModifiedFields(prev => ({ ...prev, cognome: true }));
-                  }}
-                  autoCapitalize="words"
-                  scrollEnabled={false}
-                />
-              </View>
-
-              {/* Email */}
-              <View className="mb-4 w-full">
-                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
-                <TextInput
-                  className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                    (submitted && !modifiedFields.email && (!email.trim() || !/^[A-Za-z0-9+_.-]+@(.+)$/.test(email.trim()))) || (errorMessage === 'Email già in uso' && currentScreen === 'edit' && !modifiedFields.email) ? 'border-red-500' : 'border-inputBorder'
-                  }`}
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    setModifiedFields(prev => ({ ...prev, email: true }));
-                    if (errorMessage === 'Email già in uso' && currentScreen === 'edit') {
-                      setErrorMessage('');
-                    }
-                  }}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  scrollEnabled={false}
-                />
-              </View>
-
-              {/* Bottone Cambia Password */}
-              <View className="mb-4 w-full">
-                <TouchableOpacity 
-                  onPress={() => setCurrentScreen('password')} 
-                  className="bg-[#1E1E24] border border-[#303038] h-12 rounded-xl justify-center items-center flex-row gap-2"
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="lock-closed-outline" size={18} color="#00F0FF" />
-                  <Text className="text-white text-sm font-semibold">Cambia password</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Blocco Dati Opzionali */}
-              <View className="border border-borderDark/50 bg-[#16161A]/40 rounded-2xl p-4 mb-4">
-                <Text className="text-zinc-500 text-[11px] font-bold uppercase tracking-wider mb-4">Informazioni Fisiche (Opzionali)</Text>
-
-                {/* Peso & Altezza Row */}
-                <View className="flex-row gap-4 mb-4">
-                  <View className="flex-1">
-                    <Text className="text-zinc-400 text-xs font-bold tracking-wider mb-2">PESO (kg)</Text>
+                {/* Render input depending on the editing field */}
+                {editingField === 'nome' && (
+                  <View className="mb-6 w-full">
+                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Nome</Text>
                     <TextInput
                       className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                      value={peso}
-                      onChangeText={setPeso}
+                      value={editingValue}
+                      onChangeText={setEditingValue}
+                      autoCapitalize="words"
+                      scrollEnabled={false}
+                      autoFocus
+                    />
+                  </View>
+                )}
+
+                {editingField === 'cognome' && (
+                  <View className="mb-6 w-full">
+                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Cognome</Text>
+                    <TextInput
+                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                      value={editingValue}
+                      onChangeText={setEditingValue}
+                      autoCapitalize="words"
+                      scrollEnabled={false}
+                      autoFocus
+                    />
+                  </View>
+                )}
+
+                {editingField === 'email' && (
+                  isVerifyingEmailOtp ? (
+                    <View className="w-full">
+                      <Text className="text-zinc-400 text-sm mb-6 text-center leading-relaxed">
+                        Abbiamo inviato un codice OTP di 4 cifre alla nuova email:{"\n"}
+                        <Text className="text-white font-bold">{editingValue.trim().toLowerCase()}</Text>
+                      </Text>
+
+                      {/* OTP Input */}
+                      <View className="mb-6 w-full">
+                        <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Codice di verifica</Text>
+                        <TextInput
+                          className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-lg font-bold text-center tracking-[10px] focus:border-accentCyan ${
+                            submitted && !otpCode.trim() ? 'border-red-500' : 'border-inputBorder'
+                          }`}
+                          value={otpCode}
+                          onChangeText={(val) => setOtpCode(val.replace(/[^0-9]/g, '').slice(0, 4))}
+                          keyboardType="number-pad"
+                          maxLength={4}
+                          placeholder="0000"
+                          placeholderTextColor="#52525B"
+                          scrollEnabled={false}
+                          autoFocus
+                        />
+                      </View>
+
+                      <TouchableOpacity 
+                        className="border border-borderDark h-12 rounded-xl justify-center items-center mb-2" 
+                        activeOpacity={0.8}
+                        onPress={handleResendEmailOtp}
+                      >
+                        <Text className="text-zinc-400 text-sm font-bold">Invia di nuovo</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <View className="mb-6 w-full">
+                      <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
+                      <TextInput
+                        className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                        value={editingValue}
+                        onChangeText={setEditingValue}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        scrollEnabled={false}
+                        autoFocus
+                      />
+                    </View>
+                  )
+                )}
+
+                {editingField === 'dataNascita' && (
+                  <View className="mb-6 w-full">
+                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Data di nascita (GG/MM/AAAA)</Text>
+                    <TextInput
+                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                      value={editingValue}
+                      onChangeText={(text) => {
+                        let formatted = text.replace(/[^0-9]/g, '');
+                        if (formatted.length > 2) {
+                          formatted = formatted.substring(0, 2) + '/' + formatted.substring(2);
+                        }
+                        if (formatted.length > 5) {
+                          formatted = formatted.substring(0, 5) + '/' + formatted.substring(5, 9);
+                        }
+                        setEditingValue(formatted);
+                      }}
+                      placeholder="GG/MM/AAAA"
+                      placeholderTextColor="#52525B"
+                      keyboardType="number-pad"
+                      maxLength={10}
+                      scrollEnabled={false}
+                      autoFocus
+                    />
+                  </View>
+                )}
+
+                {editingField === 'peso' && (
+                  <View className="mb-6 w-full">
+                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Peso (kg)</Text>
+                    <TextInput
+                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                      value={editingValue}
+                      onChangeText={setEditingValue}
                       keyboardType="decimal-pad"
                       scrollEnabled={false}
+                      autoFocus
                     />
                   </View>
-                  <View className="flex-1">
-                    <Text className="text-zinc-400 text-xs font-bold tracking-wider mb-2">ALTEZZA (cm)</Text>
+                )}
+
+                {editingField === 'altezza' && (
+                  <View className="mb-6 w-full">
+                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Altezza (cm)</Text>
                     <TextInput
                       className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                      value={altezza}
-                      onChangeText={setAltezza}
+                      value={editingValue}
+                      onChangeText={setEditingValue}
                       keyboardType="numeric"
                       scrollEnabled={false}
+                      autoFocus
                     />
                   </View>
-                </View>
+                )}
 
-                {/* Genere Selection Chips */}
-                <View className="w-full">
-                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Genere</Text>
-                  <View className="flex-row justify-between gap-3">
-                    {['MASCHIO', 'FEMMINA', 'ALTRO'].map((g) => {
-                      const label = g === 'MASCHIO' ? 'Maschio' : g === 'FEMMINA' ? 'Femmina' : 'Altro';
-                      const isSelected = selectedGender === g;
-                      return (
-                        <TouchableOpacity
-                          key={g}
-                          onPress={() => setSelectedGender(isSelected ? null : g)}
-                          className={`flex-1 py-3 rounded-xl border items-center justify-center ${
-                            isSelected ? 'bg-white border-white' : 'bg-inputDark border-inputBorder'
-                          }`}
-                        >
-                          <Text className={`text-xs font-bold ${isSelected ? 'text-zinc-950' : 'text-zinc-400'}`}>
-                            {label}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                {editingField === 'genere' && (
+                  <View className="mb-6 w-full">
+                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Genere</Text>
+                    <View className="flex-row justify-between gap-3">
+                      {['MASCHIO', 'FEMMINA', 'ALTRO'].map((g) => {
+                        const label = g === 'MASCHIO' ? 'Maschio' : g === 'FEMMINA' ? 'Femmina' : 'Altro';
+                        const isSelected = editingValue === g;
+                        return (
+                          <TouchableOpacity
+                            key={g}
+                            onPress={() => setEditingValue(isSelected ? null : g)}
+                            className={`flex-1 py-3 rounded-xl border items-center justify-center ${
+                              isSelected ? 'bg-white border-white' : 'bg-inputDark border-inputBorder'
+                            }`}
+                          >
+                            <Text className={`text-xs font-bold ${isSelected ? 'text-zinc-950' : 'text-zinc-400'}`}>
+                              {label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   </View>
-                </View>
-              </View>
+                )}
 
-              <TouchableOpacity 
-                className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
-                activeOpacity={0.8}
-                onPress={handleSave}
-              >
-                <Text className="text-zinc-950 text-[15px] font-bold">Salva Modifiche</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+                {/* Save Button for Sub-page */}
+                <TouchableOpacity 
+                  className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
+                  activeOpacity={0.8}
+                  onPress={isVerifyingEmailOtp ? handleVerifyEmailOtp : handleSaveField}
+                >
+                  <Text className="text-zinc-950 text-[15px] font-bold">
+                    {isVerifyingEmailOtp ? 'Verifica e Salva' : 'Salva'}
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </KeyboardAvoidingView>
+          </Animated.View>
+        )}
       </Animated.View>
 
       {/* 3. PASSWORD SCREEN */}
@@ -622,6 +1097,19 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           transform: [{ translateX: passwordTranslateX }],
         }}
       >
+        {/* Header locale per Cambia password */}
+        <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+          <View className="w-10 items-start">
+            <TouchableOpacity onPress={handleCancelPassword} className="p-1">
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-bold text-white tracking-tight">Modifica profilo</Text>
+          </View>
+          <View className="w-10" />
+        </View>
+
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           className="flex-1"
@@ -631,20 +1119,16 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Header Title with Back Button */}
-            <View className="mb-8 flex-row items-center gap-2">
-              <TouchableOpacity onPress={handleCancelPassword} className="mr-1">
-                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-              <Text className="text-3xl font-extrabold text-white tracking-tight">
-                Cambia password
-              </Text>
-            </View>
-            {/* Space reserved for Error Message banner to prevent layout shifts */}
+            <View className="mt-2" />
+            {/* Space reserved for Error/Success Message banner to prevent layout shifts */}
             <View className="h-[52px] mb-6 w-full justify-center items-start">
               {errorMessage && currentScreen === 'password' ? (
                 <View className="bg-red-500/10 border border-red-500/20 px-4 py-2.5 rounded-xl self-start">
                   <Text className="text-red-500 text-xs font-semibold">{errorMessage}</Text>
+                </View>
+              ) : successMessage && currentScreen === 'password' ? (
+                <View className="bg-accentCyan/10 border border-accentCyan/20 px-4 py-2.5 rounded-xl self-start">
+                  <Text className="text-accentCyan text-xs font-semibold">{successMessage}</Text>
                 </View>
               ) : null}
             </View>
@@ -688,20 +1172,13 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
                 }}
               />
 
-              {/* Success Message replaces Submit Button to prevent layout shifting */}
-              {successMessage && currentScreen === 'password' ? (
-                <View className="bg-accentCyan/10 border border-accentCyan/20 h-12 rounded-xl justify-center items-center mt-2 w-full">
-                  <Text className="text-accentCyan text-[15px] font-bold text-center">{successMessage}</Text>
-                </View>
-              ) : (
-                <TouchableOpacity 
-                  className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
-                  activeOpacity={0.8}
-                  onPress={handleSavePassword}
-                >
-                  <Text className="text-zinc-950 text-[15px] font-bold">Salva Password</Text>
-                </TouchableOpacity>
-              )}
+              <TouchableOpacity 
+                className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
+                activeOpacity={0.8}
+                onPress={handleSavePassword}
+              >
+                <Text className="text-zinc-950 text-[15px] font-bold">Salva Password</Text>
+              </TouchableOpacity>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>

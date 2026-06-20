@@ -7,6 +7,9 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
@@ -118,5 +121,19 @@ public class S3StorageService implements FileStorageService {
     private String generateUniqueName(String filename) {
         String cleanName = filename.replaceAll("[^a-zA-Z0-9._-]", "_");
         return UUID.randomUUID().toString() + "_" + cleanName;
+    }
+
+    @Override
+    public java.util.List<String> listKeys(String prefix) {
+        ListObjectsV2Request listRequest = ListObjectsV2Request.builder()
+            .bucket(bucketName)
+            .prefix(prefix)
+            .build();
+        ListObjectsV2Response listResponse = s3Client.listObjectsV2(listRequest);
+        java.util.List<String> keys = new java.util.ArrayList<>();
+        for (S3Object s3Object : listResponse.contents()) {
+            keys.add(s3Object.key());
+        }
+        return keys;
     }
 }

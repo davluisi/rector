@@ -11,7 +11,8 @@ import {
   Platform,
   StatusBar as RNStatusBar,
   PanResponder,
-  Dimensions
+  Dimensions,
+  Keyboard
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -131,19 +132,17 @@ export default function App() {
     setCurrentUser(null);
   };
 
+
+
   return (
     <SafeAreaProvider>
-      <SafeAreaView className="flex-1 bg-premiumDark">
+      <SafeAreaView 
+        className="flex-1 bg-premiumDark"
+        onStartShouldSetResponder={() => { Keyboard.dismiss(); return false; }}
+      >
         <StatusBar style="light" />
 
-      {/* Header */}
-      <View className="flex-row items-center justify-center py-3 border-b border-[#1A1A1E] z-50">
-        <Image
-          source={require('./assets/logo.png')}
-          className="h-12 w-[150px]"
-          resizeMode="contain"
-        />
-      </View>
+
 
       {/* Area Contenuto Principale */}
       <View 
@@ -162,6 +161,15 @@ export default function App() {
             transform: [{ translateX: worldTranslateX }],
           }}
         >
+          {/* Header locale per la Home */}
+          <View className="flex-row items-center justify-center py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+            <Image
+              source={require('./assets/logo.png')}
+              className="h-10 w-[120px]"
+              resizeMode="contain"
+            />
+          </View>
+
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
 
             {/* Hero Banner / Intro */}
@@ -190,16 +198,7 @@ export default function App() {
               <TrainerCard key={trainer.id} trainer={trainer} />
             ))}
 
-            {/* Bottom Promo Card */}
-            <View className="bg-[#1E1B29] mx-5 mt-6 rounded-2xl p-5 border border-[#3B2F52] items-center">
-              <Text className="text-lg font-extrabold text-white mb-1.5">Sei un Personal Trainer?</Text>
-              <Text className="text-xs text-[#B4B0C4] text-center leading-[18px] mb-4">
-                Unisciti a MondoPT per ampliare la tua clientela e gestire il tuo business.
-              </Text>
-              <TouchableOpacity className="bg-white py-2.5 px-5 rounded-lg">
-                <Text className="text-[#1E1B29] text-sm font-bold">Inizia Ora</Text>
-              </TouchableOpacity>
-            </View>
+
 
           </ScrollView>
         </Animated.View>
@@ -214,11 +213,18 @@ export default function App() {
             bottom: 0,
             transform: [{ translateX: barbellTranslateX }],
           }}
-          className="bg-premiumDark justify-center items-center px-6"
+          className="bg-premiumDark"
         >
-          <Ionicons name="barbell-outline" size={64} color="#303038" className="mb-4" />
-          <Text className="text-zinc-500 font-bold text-lg text-center">Allenamenti</Text>
-          <Text className="text-zinc-600 text-sm text-center mt-1">Nessuna scheda caricata per il momento.</Text>
+          {/* Header locale per Allenamenti */}
+          <View className="flex-row items-center justify-center py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+            <Text className="text-lg font-bold text-white tracking-tight">Allenamenti</Text>
+          </View>
+
+          <View className="flex-1 justify-center items-center px-6">
+            <Ionicons name="barbell-outline" size={64} color="#303038" className="mb-4" />
+            <Text className="text-zinc-500 font-bold text-lg text-center">Allenamenti</Text>
+            <Text className="text-zinc-600 text-sm text-center mt-1">Nessuna scheda caricata per il momento.</Text>
+          </View>
         </Animated.View>
 
         {/* Auth Screen (compresa tra topbar e bottombar) */}
@@ -246,7 +252,6 @@ export default function App() {
               setMode={setAuthMode}
               onLoginSuccess={(user) => {
                 setCurrentUser(user);
-                setActiveTab('profile');
               }}
             />
           )}
@@ -259,7 +264,10 @@ export default function App() {
         <TouchableOpacity 
           className="items-center justify-center p-2" 
           activeOpacity={0.7}
-          onPress={() => setActiveTab('barbell')}
+          onPress={() => {
+            Keyboard.dismiss();
+            setActiveTab('barbell');
+          }}
         >
           <Ionicons name="barbell-outline" size={32} color={activeTab === 'barbell' ? '#FFFFFF' : '#71717A'} />
         </TouchableOpacity>
@@ -268,7 +276,10 @@ export default function App() {
         <TouchableOpacity 
           className="items-center justify-center p-2" 
           activeOpacity={0.7}
-          onPress={() => setActiveTab('world')}
+          onPress={() => {
+            Keyboard.dismiss();
+            setActiveTab('world');
+          }}
         >
           <Ionicons name="earth-outline" size={32} color={activeTab === 'world' ? '#FFFFFF' : '#71717A'} />
         </TouchableOpacity>
@@ -282,6 +293,7 @@ export default function App() {
               }`}
               activeOpacity={0.7}
               onPress={() => {
+                Keyboard.dismiss();
                 setActiveTab('profile');
               }}
             >
@@ -298,7 +310,7 @@ export default function App() {
               }`}
               activeOpacity={0.7}
               onPress={() => {
-                setAuthMode('login');
+                Keyboard.dismiss();
                 setActiveTab('profile');
               }}
             >

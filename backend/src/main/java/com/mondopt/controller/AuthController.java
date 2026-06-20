@@ -3,15 +3,20 @@ package com.mondopt.controller;
 import com.mondopt.dto.RegistrazioneRequest;
 import com.mondopt.dto.LoginRequest;
 import com.mondopt.entity.Utente;
+import com.mondopt.entity.OtpVerifica;
 import com.mondopt.repository.UtenteRepository;
+import com.mondopt.repository.OtpVerificaRepository;
 import com.mondopt.service.FileStorageService;
+import com.mondopt.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.Random;
 import java.util.regex.Pattern;
+import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -22,11 +27,104 @@ public class AuthController {
     private UtenteRepository utenteRepository;
 
     @Autowired
+    private OtpVerificaRepository otpVerificaRepository;
+
+    @Autowired
+    private EmailService emailService;
+
+    @Autowired
     private FileStorageService fileStorageService;
 
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
         "^[A-Za-z0-9+_.-]+@(.+)$"
     );
+
+    @PostMapping("/invia-otp")
+    public ResponseEntity<?> inviaOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Inserisci l'email"));
+        }
+        String cleanEmail = email.trim().toLowerCase();
+        if (!EMAIL_PATTERN.matcher(cleanEmail).matches()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Formato email non valido"));
+        }
+
+        // Generate 4-digit OTP code
+        Random random = new Random();
+        String codice = String.format("%04d", random.nextInt(10000));
+
+        OtpVerifica otpVerifica = otpVerificaRepository.findById(cleanEmail)
+            .orElse(new OtpVerifica());
+        
+        otpVerifica.setEmail(cleanEmail);
+        otpVerifica.setCodice(codice);
+        otpVerifica.setScadenza(LocalDateTime.now().plusMinutes(5));
+        otpVerifica.setVerificato(false);
+        otpVerifica.setDataVerifica(null);
+
+        otpVerificaRepository.save(otpVerifica);
+
+        // Send Email
+        emailService.sendOtpEmail(cleanEmail, codice);
+
+        return ResponseEntity.ok(Map.of("messaggio", "Codice di verifica inviato"));
+    }
+
+    @PostMapping("/verifica-otp")
+    public ResponseEntity<?> verificaOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String codice = request.get("codice");
+
+        if (email == null || email.trim().isEmpty() || codice == null || codice.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Email e codice sono obbligatori"));
+        }
+
+        String cleanEmail = email.trim().toLowerCase();
+        java.util.Optional<OtpVerifica> otpOpt = otpVerificaRepository.findById(cleanEmail);
+
+        if (otpOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Nessun codice richiesto per questa email"));
+        }
+
+        OtpVerifica otpVerifica = otpOpt.get();
+        if (otpVerifica.getScadenza().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Il codice è scaduto. Richiedine uno nuovo."));
+        }
+
+        if (!otpVerifica.getCodice().equals(codice.trim())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Codice non corretto"));
+        }
+
+        otpVerifica.setVerificato(true);
+        otpVerifica.setDataVerifica(LocalDateTime.now());
+        otpVerificaRepository.save(otpVerifica);
+
+        return ResponseEntity.ok(Map.of("verificato", true, "messaggio", "Email verificata con successo"));
+    }
+
+    @GetMapping("/verifica-email")
+    public ResponseEntity<?> verificaEmail(@RequestParam String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Inserisci l'email"));
+        }
+        if (!EMAIL_PATTERN.matcher(email.trim()).matches()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Formato email non valido"));
+        }
+        if (utenteRepository.findByEmail(email.trim().toLowerCase()).isPresent()) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("errore", "Email già in uso"));
+        }
+        return ResponseEntity.ok(Map.of("disponibile", true));
+    }
 
     @PostMapping("/registra")
     public ResponseEntity<?> registra(@RequestBody RegistrazioneRequest request) {
@@ -46,9 +144,16 @@ public class AuthController {
         }
 
         // Check if email is already in use
-        if (utenteRepository.findByEmail(request.getEmail()).isPresent()) {
+        if (utenteRepository.findByEmail(request.getEmail().trim().toLowerCase()).isPresent()) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("errore", "Email già in uso"));
+        }
+
+        // Verify OTP is valid and verified in the last 15 minutes
+        java.util.Optional<OtpVerifica> otpOpt = otpVerificaRepository.findById(request.getEmail().trim().toLowerCase());
+        if (otpOpt.isEmpty() || !otpOpt.get().isVerificato() || otpOpt.get().getDataVerifica().isBefore(LocalDateTime.now().minusMinutes(15))) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Email non verificata tramite OTP o codice scaduto. Effettua nuovamente la verifica."));
         }
 
         // Create and save new user entity
@@ -56,15 +161,26 @@ public class AuthController {
         utente.setNome(request.getNome().trim());
         utente.setCognome(request.getCognome().trim());
         utente.setEmail(request.getEmail().trim().toLowerCase());
+        utente.setDataNascita(request.getDataNascita());
+        utente.setGenere(request.getGenere());
+        utente.setUrlImmagineProfilo(request.getUrlImmagineProfilo());
         
         // Hash password with BCrypt
         String hashedPassword = org.mindrot.jbcrypt.BCrypt.hashpw(request.getPassword(), org.mindrot.jbcrypt.BCrypt.gensalt());
         utente.setPassword(hashedPassword);
         
-        utente.setPeso(request.getPeso());
-        utente.setAltezza(request.getAltezza());
-        utente.setGenere(request.getGenere());
-        utente.setUrlImmagineProfilo(request.getUrlImmagineProfilo());
+        if ("PERSONAL_TRAINER".equalsIgnoreCase(request.getRuolo())) {
+            com.mondopt.entity.PersonalTrainer pt = new com.mondopt.entity.PersonalTrainer();
+            pt.setUtente(utente);
+            utente.setPersonalTrainer(pt);
+        } else {
+            // Default: ATLETA
+            com.mondopt.entity.UtenteAtleta atleta = new com.mondopt.entity.UtenteAtleta();
+            atleta.setUtente(utente);
+            atleta.setPeso(request.getPeso());
+            atleta.setAltezza(request.getAltezza());
+            utente.setAtleta(atleta);
+        }
 
         utenteRepository.save(utente);
 
@@ -87,7 +203,7 @@ public class AuthController {
         java.util.Optional<Utente> optionalUtente = utenteRepository.findByEmail(email);
         if (optionalUtente.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(Map.of("errore", "Non esiste un account con questa email, registrati"));
+                .body(Map.of("errore", "Non esiste un account con questa email"));
         }
 
         Utente utente = optionalUtente.get();
@@ -107,7 +223,9 @@ public class AuthController {
             "urlImmagineProfilo", utente.getUrlImmagineProfilo() != null ? utente.getUrlImmagineProfilo() : "",
             "peso", utente.getPeso() != null ? utente.getPeso().toString() : "",
             "altezza", utente.getAltezza() != null ? utente.getAltezza().toString() : "",
-            "genere", utente.getGenere() != null ? utente.getGenere().name() : ""
+            "genere", utente.getGenere() != null ? utente.getGenere().name() : "",
+            "ruolo", utente.getPersonalTrainer() != null ? "PERSONAL_TRAINER" : "ATLETA",
+            "dataNascita", utente.getDataNascita() != null ? utente.getDataNascita().toString() : ""
         ));
     }
 
@@ -142,16 +260,30 @@ public class AuthController {
                 .body(Map.of("errore", "Email già in uso"));
         }
 
+        // Verify OTP if email changed
+        String newEmail = request.getEmail().trim().toLowerCase();
+        if (!newEmail.equals(utente.getEmail())) {
+            java.util.Optional<OtpVerifica> otpOpt = otpVerificaRepository.findById(newEmail);
+            if (otpOpt.isEmpty() || !otpOpt.get().isVerificato() || otpOpt.get().getDataVerifica().isBefore(LocalDateTime.now().minusMinutes(15))) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("errore", "La nuova email non è stata verificata tramite OTP o codice scaduto."));
+            }
+        }
+
         // Update fields
         utente.setNome(request.getNome().trim());
         utente.setCognome(request.getCognome().trim());
         utente.setEmail(request.getEmail().trim().toLowerCase());
+        utente.setDataNascita(request.getDataNascita());
         if (request.getPassword() != null && !request.getPassword().trim().isEmpty()) {
             String hashedPassword = org.mindrot.jbcrypt.BCrypt.hashpw(request.getPassword().trim(), org.mindrot.jbcrypt.BCrypt.gensalt());
             utente.setPassword(hashedPassword);
         }
-        utente.setPeso(request.getPeso());
-        utente.setAltezza(request.getAltezza());
+        if (utente.getPersonalTrainer() == null) {
+            // It is an athlete, so we can save physical stats
+            utente.setPeso(request.getPeso());
+            utente.setAltezza(request.getAltezza());
+        }
         utente.setGenere(request.getGenere());
 
         // Delete old profile image from S3 if it changed
@@ -181,7 +313,9 @@ public class AuthController {
             "urlImmagineProfilo", utente.getUrlImmagineProfilo() != null ? utente.getUrlImmagineProfilo() : "",
             "peso", utente.getPeso() != null ? utente.getPeso().toString() : "",
             "altezza", utente.getAltezza() != null ? utente.getAltezza().toString() : "",
-            "genere", utente.getGenere() != null ? utente.getGenere().name() : ""
+            "genere", utente.getGenere() != null ? utente.getGenere().name() : "",
+            "ruolo", utente.getPersonalTrainer() != null ? "PERSONAL_TRAINER" : "ATLETA",
+            "dataNascita", utente.getDataNascita() != null ? utente.getDataNascita().toString() : ""
         ));
     }
 

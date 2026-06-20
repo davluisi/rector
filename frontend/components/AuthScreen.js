@@ -9,14 +9,17 @@ import {
   Platform,
   Image,
   Animated,
-  Dimensions
+  Dimensions,
+  StyleSheet,
+  Keyboard
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
 // Local network backend URL (Expo compatible)
 const API_URL = 'http://192.168.1.180:8080';
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuccess }) {
 
   // Form inputs states (Registration)
@@ -27,6 +30,32 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
   const [altezza, setAltezza] = useState('');
   const [selectedGender, setSelectedGender] = useState(null); // 'MASCHIO' | 'FEMMINA' | 'ALTRO'
   const [profileImage, setProfileImage] = useState(null);
+  const [dataNascita, setDataNascita] = useState(''); // DD/MM/YYYY format
+  const [ruolo, setRuolo] = useState('ATLETA'); // 'ATLETA' | 'PERSONAL_TRAINER'
+  const [otpCode, setOtpCode] = useState('');
+
+  const getSectionKey = (scr) => {
+    if (scr.startsWith('reg')) return 'regFlow';
+    return scr;
+  };
+
+  const initialScreen = mode === 'register' ? 'reg1' : (mode === 'forgot' ? 'forgot' : (mode === 'success' ? 'success' : 'login'));
+  const [currentScreen, setCurrentScreen] = useState(initialScreen);
+  const [activeSections, setActiveSections] = useState([getSectionKey(initialScreen)]);
+
+  // Animated offsets for each view
+  const anims = {
+    login: useRef(new Animated.Value(initialScreen === 'login' ? 0 : SCREEN_WIDTH)).current,
+    forgot: useRef(new Animated.Value(initialScreen === 'forgot' ? 0 : SCREEN_WIDTH)).current,
+    regFlow: useRef(new Animated.Value(initialScreen.startsWith('reg') ? 0 : SCREEN_WIDTH)).current,
+    success: useRef(new Animated.Value(initialScreen === 'success' ? 0 : SCREEN_WIDTH)).current,
+    reg1: useRef(new Animated.Value(0)).current,
+    regOtp: useRef(new Animated.Value(SCREEN_WIDTH)).current,
+    reg2: useRef(new Animated.Value(SCREEN_WIDTH)).current,
+    reg3: useRef(new Animated.Value(SCREEN_WIDTH)).current,
+    reg4: useRef(new Animated.Value(SCREEN_WIDTH)).current,
+    reg5: useRef(new Animated.Value(SCREEN_WIDTH)).current,
+  };
 
   const handlePickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -91,6 +120,138 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Transition helper function
+  const navigateToScreen = (targetScreen) => {
+    Keyboard.dismiss();
+
+    // If AuthScreen is not visible, do all layout changes instantly without animation
+    if (!visible) {
+      const targetSection = getSectionKey(targetScreen);
+      
+      anims.login.setValue(targetSection === 'login' ? 0 : SCREEN_WIDTH);
+      anims.forgot.setValue(targetSection === 'forgot' ? 0 : SCREEN_WIDTH);
+      anims.regFlow.setValue(targetSection === 'regFlow' ? 0 : SCREEN_WIDTH);
+      anims.success.setValue(targetSection === 'success' ? 0 : SCREEN_WIDTH);
+      
+      if (targetScreen.startsWith('reg')) {
+        anims.reg1.setValue(targetScreen === 'reg1' ? 0 : SCREEN_WIDTH);
+        anims.regOtp.setValue(targetScreen === 'regOtp' ? 0 : SCREEN_WIDTH);
+        anims.reg2.setValue(targetScreen === 'reg2' ? 0 : SCREEN_WIDTH);
+        anims.reg3.setValue(targetScreen === 'reg3' ? 0 : SCREEN_WIDTH);
+        anims.reg4.setValue(targetScreen === 'reg4' ? 0 : SCREEN_WIDTH);
+        anims.reg5.setValue(targetScreen === 'reg5' ? 0 : SCREEN_WIDTH);
+      }
+      
+      setActiveSections([targetSection]);
+      setCurrentScreen(targetScreen);
+      setErrorMessage('');
+      setSuccessMessage('');
+      setSubmitted(false);
+      return;
+    }
+
+    const isInternalReg = targetScreen.startsWith('reg') && currentScreen.startsWith('reg');
+
+    if (isInternalReg) {
+      if (targetScreen === currentScreen) return;
+
+      const stepOrder = { reg1: 1, regOtp: 2, reg2: 3, reg3: 4, reg4: 5, reg5: 6 };
+      const isForward = stepOrder[targetScreen] > stepOrder[currentScreen];
+      const oldAnim = anims[currentScreen];
+      const newAnim = anims[targetScreen];
+
+      newAnim.setValue(isForward ? SCREEN_WIDTH : -SCREEN_WIDTH);
+      setCurrentScreen(targetScreen);
+
+      Animated.parallel([
+        Animated.timing(oldAnim, {
+          toValue: isForward ? -SCREEN_WIDTH : SCREEN_WIDTH,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+        Animated.timing(newAnim, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setErrorMessage('');
+        setSuccessMessage('');
+        setSubmitted(false);
+      });
+      return;
+    }
+
+    const targetSection = getSectionKey(targetScreen);
+    const currentSection = getSectionKey(currentScreen);
+
+    if (targetSection === currentSection) {
+      if (targetScreen.startsWith('reg')) {
+        anims.reg1.setValue(0);
+        anims.reg2.setValue(SCREEN_WIDTH);
+        anims.reg3.setValue(SCREEN_WIDTH);
+        anims.reg4.setValue(SCREEN_WIDTH);
+        anims.reg5.setValue(SCREEN_WIDTH);
+        setCurrentScreen(targetScreen);
+      }
+      return;
+    }
+
+    const order = {
+      login: 0,
+      forgot: 0.5,
+      regFlow: 1,
+      success: 2,
+    };
+
+    const isForward = order[targetSection] > order[currentSection];
+    const oldAnim = anims[currentSection];
+    const newAnim = anims[targetSection];
+
+    if (targetScreen.startsWith('reg')) {
+      anims.reg1.setValue(0);
+      anims.reg2.setValue(SCREEN_WIDTH);
+      anims.reg3.setValue(SCREEN_WIDTH);
+      anims.reg4.setValue(SCREEN_WIDTH);
+      anims.reg5.setValue(SCREEN_WIDTH);
+    }
+
+    newAnim.setValue(isForward ? SCREEN_WIDTH : -SCREEN_WIDTH);
+    setActiveSections([currentSection, targetSection]);
+    setCurrentScreen(targetScreen);
+
+    Animated.parallel([
+      Animated.timing(oldAnim, {
+        toValue: isForward ? -SCREEN_WIDTH : SCREEN_WIDTH,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(newAnim, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setActiveSections([targetSection]);
+      setErrorMessage('');
+      setSuccessMessage('');
+      setSubmitted(false);
+    });
+  };
+
+  // Sync with mode prop from parent
+  useEffect(() => {
+    if (mode === 'login' && currentScreen !== 'login') {
+      navigateToScreen('login');
+    } else if (mode === 'register' && !currentScreen.startsWith('reg')) {
+      navigateToScreen('reg1');
+    } else if (mode === 'forgot' && currentScreen !== 'forgot') {
+      navigateToScreen('forgot');
+    } else if (mode === 'success' && currentScreen !== 'success') {
+      navigateToScreen('success');
+    }
+  }, [mode]);
+
   // Clear errors and validation states when switching authentication modes
   useEffect(() => {
     setErrorMessage('');
@@ -99,16 +260,17 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     setModifiedFields({});
   }, [mode]);
 
-
-
   // Reset form helper
   const resetForm = () => {
     setNome('');
     setCognome('');
     setEmail('');
+    setOtpCode('');
     setPeso('');
     setAltezza('');
     setSelectedGender(null);
+    setDataNascita('');
+    setRuolo('ATLETA');
     setSubmitted(false);
     setModifiedFields({});
     setErrorMessage('');
@@ -160,9 +322,11 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
       // Success: show message first, then notify App after 1.2 seconds
       setSuccessMessage("Accesso effettuato");
       setTimeout(() => {
-        onLoginSuccess(data);
-        resetForm();
-        onClose();
+        onClose(); // Slide out to Home tab first
+        setTimeout(() => {
+          onLoginSuccess(data);
+          resetForm();
+        }, 300); // Wait for the 250ms tab transition to finish
       }, 1200);
     } catch (error) {
       setErrorMessage('Impossibile connettersi al server');
@@ -170,34 +334,212 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     }
   };
 
-  const handleRegister = async () => {
+  const parseDate = (dateStr) => {
+    const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+    if (!regex.test(dateStr)) return null;
+    const match = dateStr.match(regex);
+    const day = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const year = parseInt(match[3], 10);
+    if (month < 1 || month > 12) return null;
+    if (day < 1 || day > 31) return null;
+    const dateObj = new Date(year, month - 1, day);
+    if (dateObj.getFullYear() !== year || dateObj.getMonth() !== month - 1 || dateObj.getDate() !== day) {
+      return null;
+    }
+    if (year < 1900 || year > new Date().getFullYear()) return null;
+    
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${year}-${pad(month)}-${pad(day)}`;
+  };
+
+  const handleStep1Next = async () => {
     setSubmitted(true);
-    setModifiedFields({});
     setErrorMessage('');
 
-    const pwd = (passwordRef.current || '').trim();
-    const confirmPwd = (confirmPasswordRef.current || '').trim();
-
-    // 1. Mandatory fields check
-    if (!nome.trim() || !cognome.trim() || !email.trim() || !pwd || !confirmPwd) {
-      setErrorMessage('Compila tutti i campi obbligatori');
+    if (!email.trim()) {
+      setErrorMessage('L\'email è obbligatoria');
       return;
     }
 
-    // 2. Email format validation
     const emailRegex = /^[A-Za-z0-9+_.-]+@(.+)$/;
     if (!emailRegex.test(email.trim())) {
       setErrorMessage('Formato email non valido');
       return;
     }
 
-    // 3. Passwords match validation
+    try {
+      const response = await fetch(`${API_URL}/api/auth/verifica-email?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data && data.errore) {
+          setErrorMessage(data.errore);
+        } else {
+          setErrorMessage('Errore durante la verifica dell\'email');
+        }
+        return;
+      }
+
+      // Send OTP
+      try {
+        setSuccessMessage('Invio codice OTP in corso...');
+        const otpResponse = await fetch(`${API_URL}/api/auth/invia-otp`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        });
+
+        const otpData = await otpResponse.json();
+        if (!otpResponse.ok) {
+          setErrorMessage(otpData.errore || 'Errore durante l\'invio del codice OTP');
+          return;
+        }
+
+        setSuccessMessage('Codice inviato correttamente!');
+        setSubmitted(false);
+        setOtpCode('');
+        
+        setTimeout(() => {
+          setSuccessMessage('');
+          navigateToScreen('regOtp');
+        }, 800);
+      } catch (otpErr) {
+        setErrorMessage('Impossibile inviare il codice di verifica');
+        console.error(otpErr);
+      }
+    } catch (error) {
+      setErrorMessage('Impossibile connettersi al server');
+      console.error(error);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setSubmitted(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (otpCode.length < 4) {
+      setErrorMessage('Inserisci il codice di 4 cifre');
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/verifica-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          codice: otpCode.trim(),
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorMessage(data.errore || 'Codice errato o scaduto');
+        return;
+      }
+
+      setSuccessMessage('Email verificata con successo!');
+      setSubmitted(false);
+      
+      setTimeout(() => {
+        setSuccessMessage('');
+        navigateToScreen('reg2');
+      }, 800);
+    } catch (error) {
+      setErrorMessage('Impossibile connettersi al server');
+      console.error(error);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    setErrorMessage('');
+    setSuccessMessage('Rinvio codice OTP...');
+    try {
+      const response = await fetch(`${API_URL}/api/auth/invia-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        setErrorMessage(data.errore || 'Errore durante l\'invio del codice OTP');
+        return;
+      }
+
+      setSuccessMessage('Codice inviato nuovamente!');
+      setOtpCode('');
+      setTimeout(() => setSuccessMessage(''), 2000);
+    } catch (error) {
+      setErrorMessage('Impossibile inviare il codice di verifica');
+      console.error(error);
+    }
+  };
+
+  const handleStep2Next = () => {
+    setSubmitted(true);
+    setErrorMessage('');
+
+    const pwd = (passwordRef.current || '').trim();
+    const confirmPwd = (confirmPasswordRef.current || '').trim();
+
+    if (!pwd) {
+      setErrorMessage('Inserisci una password');
+      return;
+    }
+
     if (pwd !== confirmPwd) {
       setErrorMessage('Le password non coincidono');
       return;
     }
 
-    // 4. Send request to backend
+    setSubmitted(false);
+    navigateToScreen('reg3');
+  };
+
+  const handleStep3Next = () => {
+    setSubmitted(true);
+    setErrorMessage('');
+
+    if (!nome.trim() || !cognome.trim() || !dataNascita.trim() || !selectedGender || !ruolo) {
+      setErrorMessage('Compila tutti i campi obbligatori');
+      return;
+    }
+
+    const formattedDate = parseDate(dataNascita.trim());
+    if (!formattedDate) {
+      setErrorMessage('Data di nascita non valida (formato GG/MM/AAAA)');
+      return;
+    }
+
+    setSubmitted(false);
+    navigateToScreen('reg4');
+  };
+
+  const handleStep4Next = () => {
+    setSubmitted(false);
+    if (ruolo === 'ATLETA') {
+      navigateToScreen('reg5');
+    } else {
+      handleRegister();
+    }
+  };
+
+  const handleRegister = async () => {
+    setSubmitted(true);
+    setErrorMessage('');
+
+    const pwd = (passwordRef.current || '').trim();
+    const formattedDate = parseDate(dataNascita.trim());
+
     try {
       const response = await fetch(`${API_URL}/api/auth/registra`, {
         method: 'POST',
@@ -209,10 +551,12 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
           cognome: cognome.trim(),
           email: email.trim().toLowerCase(),
           password: pwd,
-          peso: peso.trim() ? parseFloat(peso.replace(',', '.')) : null,
-          altezza: altezza.trim() ? parseFloat(altezza.replace(',', '.')) : null,
+          peso: ruolo === 'ATLETA' && peso.trim() ? parseFloat(peso.replace(',', '.')) : null,
+          altezza: ruolo === 'ATLETA' && altezza.trim() ? parseFloat(altezza.replace(',', '.')) : null,
           genere: selectedGender,
           urlImmagineProfilo: profileImage,
+          dataNascita: formattedDate,
+          ruolo: ruolo,
         }),
       });
 
@@ -227,25 +571,82 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
         return;
       }
 
-      // Success: reset form and switch to success screen
       resetForm();
       setMode('success');
+      navigateToScreen('success');
     } catch (error) {
       setErrorMessage('Impossibile connettersi al server');
       console.error(error);
     }
   };
 
-  const handleClose = () => {
-    resetForm();
-    onClose();
+  const renderMessages = (screen) => {
+    const isThisScreen = currentScreen === screen;
+    return (
+      <View className="h-[52px] mb-6 w-full justify-center items-start">
+        {isThisScreen && errorMessage ? (
+          <View className="bg-red-500/10 border border-red-500/20 px-4 py-2.5 rounded-xl self-start">
+            <Text className="text-red-500 text-xs font-semibold">{errorMessage}</Text>
+          </View>
+        ) : isThisScreen && successMessage ? (
+          <View className="bg-accentCyan/10 border border-accentCyan/20 px-4 py-2.5 rounded-xl self-start">
+            <Text className="text-accentCyan text-xs font-semibold">{successMessage}</Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
+  const renderStepIndicator = (screenName) => {
+    if (!screenName.startsWith('reg')) return null;
+    let stepNum;
+    if (screenName === 'reg1' || screenName === 'regOtp') stepNum = 1;
+    else if (screenName === 'reg2') stepNum = 2;
+    else if (screenName === 'reg3') stepNum = 3;
+    else if (screenName === 'reg4') stepNum = 4;
+    else if (screenName === 'reg5') stepNum = 5;
+
+    const totalSteps = ruolo === 'ATLETA' ? 5 : 4;
+    
+    return (
+      <View className="flex-row items-center justify-center gap-2 mb-6">
+        {Array.from({ length: totalSteps }).map((_, idx) => {
+          const isCurrent = idx + 1 === stepNum;
+          return (
+            <View
+              key={idx}
+              className={`w-3.5 h-3.5 rounded-[3px] border ${
+                isCurrent 
+                  ? 'bg-accentCyan border-accentCyan shadow-lg shadow-accentCyan/30' 
+                  : 'bg-inputDark border-inputBorder'
+              }`}
+            />
+          );
+        })}
+      </View>
+    );
   };
 
   return (
     <View 
       pointerEvents={visible ? 'auto' : 'none'}
       className="flex-1 bg-premiumDark"
+      onStartShouldSetResponder={() => { Keyboard.dismiss(); return false; }}
     >
+      
+      {/* 1. LOGIN SCREEN */}
+      <Animated.View 
+        style={[{ transform: [{ translateX: anims.login }] }, styles.absoluteScreen, !activeSections.includes('login') && { display: 'none' }]} 
+        pointerEvents={currentScreen === 'login' ? 'auto' : 'none'}
+      >
+        {/* Header locale per Accesso */}
+        <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+          <View className="w-10" />
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-bold text-white tracking-tight">Accesso</Text>
+          </View>
+          <View className="w-10" />
+        </View>
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -256,72 +657,359 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
             contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
             keyboardShouldPersistTaps="handled"
           >
-            {/* Header Title inside Screen */}
-            {mode !== 'success' && (
-              <View className="mb-6 flex-row items-center gap-2">
-                {mode === 'register' && (
-                  <TouchableOpacity onPress={() => setMode('login')} className="mr-1">
-                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                  </TouchableOpacity>
-                )}
-                {mode === 'forgot' && (
-                  <TouchableOpacity onPress={() => setMode('login')} className="mr-1">
-                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                  </TouchableOpacity>
-                )}
-                <Text className="text-3xl font-extrabold text-white tracking-tight">
-                  {mode === 'login' && 'Accedi'}
-                  {mode === 'register' && 'Registrati'}
-                  {mode === 'forgot' && 'Reimposta password'}
-                </Text>
-              </View>
-            )}
+            <View className="mt-2" />
 
-            {/* Space reserved for Error/Success Message banner to prevent layout shifts */}
-            <View className="h-[52px] mb-6 w-full justify-center items-start">
-              {errorMessage ? (
-                <View className="bg-red-500/10 border border-red-500/20 px-4 py-2.5 rounded-xl self-start">
-                  <Text className="text-red-500 text-xs font-semibold">{errorMessage}</Text>
-                </View>
-              ) : successMessage ? (
-                <View className="bg-accentCyan/10 border border-accentCyan/20 px-4 py-2.5 rounded-xl self-start">
-                  <Text className="text-accentCyan text-xs font-semibold">{successMessage}</Text>
-                </View>
-              ) : null}
+            {renderMessages('login')}
+
+            <View className="w-full">
+              {/* Email */}
+              <View className="mb-5 w-full">
+                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
+                <TextInput
+                  className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
+                    submitted && !modifiedFields.loginEmail && !loginEmail.trim() ? 'border-red-500' : 'border-inputBorder'
+                  }`}
+                  value={loginEmail}
+                  onChangeText={(text) => {
+                    setLoginEmail(text);
+                    setModifiedFields(prev => ({ ...prev, loginEmail: true }));
+                  }}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  scrollEnabled={false}
+                />
+              </View>
+
+              {/* Password */}
+              <View className="mb-4 w-full">
+                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Password</Text>
+                <TextInput
+                  key={`login_password_${mode}`}
+                  className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
+                    submitted && !modifiedFields.loginPassword && !loginPasswordRef.current ? 'border-red-500' : 'border-inputBorder'
+                  }`}
+                  onChangeText={(text) => {
+                    loginPasswordRef.current = text;
+                    setModifiedFields(prev => ({ ...prev, loginPassword: true }));
+                  }}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  scrollEnabled={false}
+                  autoCorrect={false}
+                  textContentType="oneTimeCode"
+                />
+              </View>
+
+              <TouchableOpacity onPress={() => setMode('forgot')} className="self-end mb-6">
+                <Text className="text-accentCyan text-sm font-medium">Hai dimenticato la password?</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
+                activeOpacity={0.8}
+                onPress={handleLogin}
+              >
+                <Text className="text-zinc-950 text-[15px] font-bold">Accedi</Text>
+              </TouchableOpacity>
             </View>
 
-            {/* Form Content */}
-            {mode === 'login' && (
+            {/* Toggle Footer */}
+            <View className="flex-row justify-center items-center mt-6">
+              <Text className="text-zinc-400 text-sm">Non hai un account?</Text>
+              <TouchableOpacity onPress={() => setMode('register')}>
+                <Text className="text-white text-sm font-bold ml-1.5 underline">Registrati</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Social Separator */}
+            <View className="flex-row items-center my-6">
+              <View className="flex-1 h-[1px] bg-borderDark" />
+              <Text className="text-zinc-500 text-xs mx-4 font-bold uppercase tracking-wider">Oppure</Text>
+              <View className="flex-1 h-[1px] bg-borderDark" />
+            </View>
+
+            {/* Social Buttons */}
+            <View className="flex-row justify-between gap-4">
+              <TouchableOpacity className="flex-1 flex-row items-center justify-center bg-[#1E1E24] border border-[#303038] h-12 rounded-xl gap-2.5" activeOpacity={0.8}>
+                <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+                <Text className="text-white text-sm font-semibold">Google</Text>
+              </TouchableOpacity>
+              <TouchableOpacity className="flex-1 flex-row items-center justify-center bg-[#1E1E24] border border-[#303038] h-12 rounded-xl gap-2.5" activeOpacity={0.8}>
+                <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                <Text className="text-white text-sm font-semibold">Apple</Text>
+              </TouchableOpacity>
+            </View>
+
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Animated.View>
+
+      {/* 2. FORGOT SCREEN */}
+      <Animated.View 
+        style={[{ transform: [{ translateX: anims.forgot }] }, styles.absoluteScreen, !activeSections.includes('forgot') && { display: 'none' }]} 
+        pointerEvents={currentScreen === 'forgot' ? 'auto' : 'none'}
+      >
+        {/* Header locale per Forgot Password */}
+        <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+          <View className="w-10 items-start">
+            <TouchableOpacity onPress={() => setMode('login')} className="p-1">
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-bold text-white tracking-tight">Reimposta password</Text>
+          </View>
+          <View className="w-10" />
+        </View>
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1"
+        >
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View className="mt-2" />
+
+            {renderMessages('forgot')}
+
+            <View className="w-full">
+              <Text className="text-zinc-400 text-sm leading-6 mb-6">
+                Inserisci l'indirizzo email associato al tuo account.
+              </Text>
+              <View className="mb-6 w-full">
+                <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
+                <TextInput
+                  className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  scrollEnabled={false}
+                />
+              </View>
+
+              <TouchableOpacity className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" activeOpacity={0.8}>
+                <Text className="text-zinc-950 text-[15px] font-bold">Invia Link</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => setMode('login')} className="flex-row items-center justify-center mt-6">
+                <Ionicons name="arrow-back-outline" size={16} color="#00F0FF" />
+                <Text className="text-accentCyan text-sm font-semibold"> Torna al login</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Animated.View>
+
+      {/* 3. REGISTRATION FLOW CONTAINER (anims.regFlow) */}
+      <Animated.View
+        style={[{ transform: [{ translateX: anims.regFlow }] }, styles.absoluteScreen, !activeSections.includes('regFlow') && { display: 'none' }]}
+        pointerEvents={currentScreen.startsWith('reg') ? 'auto' : 'none'}
+      >
+        {/* Header fissa condivisa per tutto il flusso di registrazione */}
+        <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+          <View className="w-10 items-start">
+            {currentScreen.startsWith('reg') && currentScreen !== 'reg1' && (
+              <TouchableOpacity 
+                onPress={() => {
+                  if (currentScreen === 'regOtp') navigateToScreen('reg1');
+                  else if (currentScreen === 'reg2') navigateToScreen('reg1');
+                  else if (currentScreen === 'reg3') navigateToScreen('reg2');
+                  else if (currentScreen === 'reg4') navigateToScreen('reg3');
+                  else if (currentScreen === 'reg5') navigateToScreen('reg4');
+                }} 
+                className="p-1"
+              >
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-bold text-white tracking-tight">
+              {ruolo === 'PERSONAL_TRAINER' ? 'Registrazione Personal Trainer' : 'Registrazione'}
+            </Text>
+          </View>
+
+          <View className="w-10" />
+        </View>
+
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          className="flex-1 relative overflow-hidden"
+        >
+          
+          {/* STEP 1 (EMAIL ONLY) */}
+          <Animated.View 
+            style={[{ transform: [{ translateX: anims.reg1 }] }, styles.absoluteScreen]} 
+            pointerEvents={currentScreen === 'reg1' ? 'auto' : 'none'}
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="mt-2" />
+
+              {renderStepIndicator('reg1')}
+              {renderMessages('reg1')}
+
               <View className="w-full">
                 {/* Email */}
-                <View className="mb-5 w-full">
+                <View className="mb-6 w-full">
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
                   <TextInput
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !modifiedFields.loginEmail && !loginEmail.trim() ? 'border-red-500' : 'border-inputBorder'
+                      submitted && !email.trim() ? 'border-red-500' : 'border-inputBorder'
                     }`}
-                    value={loginEmail}
-                    onChangeText={(text) => {
-                      setLoginEmail(text);
-                      setModifiedFields(prev => ({ ...prev, loginEmail: true }));
-                    }}
+                    value={email}
+                    onChangeText={setEmail}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     scrollEnabled={false}
                   />
                 </View>
 
+                <TouchableOpacity 
+                  className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
+                  activeOpacity={0.8}
+                  onPress={handleStep1Next}
+                >
+                  <Text className="text-zinc-950 text-[15px] font-bold">Avanti</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Toggle Footer */}
+              <View className="flex-row justify-center items-center mt-6">
+                <Text className="text-zinc-400 text-sm">Hai già un account?</Text>
+                <TouchableOpacity onPress={() => setMode('login')}>
+                  <Text className="text-white text-sm font-bold ml-1.5 underline">Accedi</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Social Separator */}
+              <View className="flex-row items-center my-6">
+                <View className="flex-1 h-[1px] bg-borderDark" />
+                <Text className="text-zinc-500 text-xs mx-4 font-bold uppercase tracking-wider">Oppure</Text>
+                <View className="flex-1 h-[1px] bg-borderDark" />
+              </View>
+
+              {/* Social Buttons */}
+              <View className="flex-row justify-between gap-4">
+                <TouchableOpacity className="flex-1 flex-row items-center justify-center bg-[#1E1E24] border border-[#303038] h-12 rounded-xl gap-2.5" activeOpacity={0.8}>
+                  <Ionicons name="logo-google" size={20} color="#FFFFFF" />
+                  <Text className="text-white text-sm font-semibold">Google</Text>
+                </TouchableOpacity>
+                <TouchableOpacity className="flex-1 flex-row items-center justify-center bg-[#1E1E24] border border-[#303038] h-12 rounded-xl gap-2.5" activeOpacity={0.8}>
+                  <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
+                  <Text className="text-white text-sm font-semibold">Apple</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Separator for Switch Button */}
+              <View className="flex-row items-center my-6">
+                <View className="flex-1 h-[1px] bg-borderDark" />
+              </View>
+
+              {/* PT / Athlete Flow Switch Button */}
+              <TouchableOpacity
+                className="flex-row items-center justify-center py-3 border border-[#303038] rounded-xl bg-[#1E1E24]"
+                activeOpacity={0.8}
+                onPress={() => {
+                  setRuolo(ruolo === 'ATLETA' ? 'PERSONAL_TRAINER' : 'ATLETA');
+                }}
+              >
+                <Text className="text-accentCyan text-sm font-bold">
+                  {ruolo === 'ATLETA' ? 'Sei un personal trainer?' : 'Non sei un personal trainer?'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+
+          {/* STEP OTP (EMAIL VERIFICATION CODE) */}
+          <Animated.View 
+            style={[{ transform: [{ translateX: anims.regOtp }] }, styles.absoluteScreen]} 
+            pointerEvents={currentScreen === 'regOtp' ? 'auto' : 'none'}
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="mt-2" />
+
+              {renderStepIndicator('regOtp')}
+              {renderMessages('regOtp')}
+
+              <View className="w-full">
+                <Text className="text-zinc-400 text-sm mb-6 text-center leading-relaxed">
+                  Abbiamo inviato un codice OTP di 4 cifre all'indirizzo email:{"\n"}
+                  <Text className="text-white font-bold">{email.trim().toLowerCase()}</Text>
+                </Text>
+
+                {/* OTP Input */}
+                <View className="mb-6 w-full">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Codice di verifica</Text>
+                  <TextInput
+                    className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-lg font-bold text-center tracking-[10px] focus:border-accentCyan ${
+                      submitted && !otpCode.trim() ? 'border-red-500' : 'border-inputBorder'
+                    }`}
+                    value={otpCode}
+                    onChangeText={(val) => setOtpCode(val.replace(/[^0-9]/g, '').slice(0, 4))}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    placeholder="0000"
+                    placeholderTextColor="#52525B"
+                    scrollEnabled={false}
+                  />
+                </View>
+
+                <TouchableOpacity 
+                  className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
+                  activeOpacity={0.8}
+                  onPress={handleVerifyOtp}
+                >
+                  <Text className="text-zinc-950 text-[15px] font-bold">Verifica Codice</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                  className="border border-borderDark h-12 rounded-xl justify-center items-center mt-4" 
+                  activeOpacity={0.8}
+                  onPress={handleResendOtp}
+                >
+                  <Text className="text-zinc-400 text-sm font-bold">Invia di nuovo</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </Animated.View>
+
+          {/* STEP 2 (PASSWORD ONLY) */}
+          <Animated.View 
+            style={[{ transform: [{ translateX: anims.reg2 }] }, styles.absoluteScreen]} 
+            pointerEvents={currentScreen === 'reg2' ? 'auto' : 'none'}
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="mt-2" />
+
+              {renderStepIndicator('reg2')}
+              {renderMessages('reg2')}
+
+              <View className="w-full">
                 {/* Password */}
-                <View className="mb-4 w-full">
+                <View className="mb-5 w-full">
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Password</Text>
                   <TextInput
-                    key={`login_password_${mode}`}
+                    key={`password_${mode}`}
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !modifiedFields.loginPassword && !loginPasswordRef.current ? 'border-red-500' : 'border-inputBorder'
+                      submitted && !(passwordRef.current || '').trim() ? 'border-red-500' : 'border-inputBorder'
                     }`}
                     onChangeText={(text) => {
-                      loginPasswordRef.current = text;
-                      setModifiedFields(prev => ({ ...prev, loginPassword: true }));
+                      passwordRef.current = text;
                     }}
                     secureTextEntry
                     autoCapitalize="none"
@@ -331,51 +1019,61 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   />
                 </View>
 
-                <TouchableOpacity onPress={() => setMode('forgot')} className="self-end mb-6">
-                  <Text className="text-accentCyan text-sm font-medium">Hai dimenticato la password?</Text>
-                </TouchableOpacity>
+                {/* Confirm Password */}
+                <View className="mb-6 w-full">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Conferma Password</Text>
+                  <TextInput
+                    key={`confirmPassword_${mode}`}
+                    className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
+                      submitted && !(confirmPasswordRef.current || '').trim() ? 'border-red-500' : 'border-inputBorder'
+                    }`}
+                    onChangeText={(text) => {
+                      confirmPasswordRef.current = text;
+                    }}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    scrollEnabled={false}
+                    autoCorrect={false}
+                    textContentType="oneTimeCode"
+                  />
+                </View>
 
                 <TouchableOpacity 
                   className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
                   activeOpacity={0.8}
-                  onPress={handleLogin}
+                  onPress={handleStep2Next}
                 >
-                  <Text className="text-zinc-950 text-[15px] font-bold">Accedi</Text>
+                  <Text className="text-zinc-950 text-[15px] font-bold">Avanti</Text>
                 </TouchableOpacity>
               </View>
-            )}
+            </ScrollView>
+          </Animated.View>
 
-            {mode === 'register' && (
-              <View className="w-full relative">
-                {/* Foto Profilo (Posizionata sopra il form, a destra del titolo) */}
-                <View style={{ position: 'absolute', right: 0, top: -72, zIndex: 10 }}>
-                  <TouchableOpacity 
-                    className="w-20 h-20 rounded-full bg-inputDark border border-inputBorder justify-center items-center overflow-hidden"
-                    activeOpacity={0.8}
-                    onPress={handlePickImage}
-                  >
-                    {profileImage ? (
-                      <Image source={{ uri: profileImage }} className="w-full h-full" />
-                    ) : (
-                      <View className="items-center justify-center">
-                        <Ionicons name="camera-outline" size={26} color="#A1A1AA" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
+          {/* STEP 3 (PERSONAL DATA) */}
+          <Animated.View 
+            style={[{ transform: [{ translateX: anims.reg3 }] }, styles.absoluteScreen]} 
+            pointerEvents={currentScreen === 'reg3' ? 'auto' : 'none'}
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="mt-2" />
 
-                 {/* Nome */}
+              {renderStepIndicator('reg3')}
+              {renderMessages('reg3')}
+
+              <View className="w-full">
+                {/* Nome */}
                 <View className="mb-5 w-full">
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Nome</Text>
                   <TextInput
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !modifiedFields.nome && !nome.trim() ? 'border-red-500' : 'border-inputBorder'
+                      submitted && !nome.trim() ? 'border-red-500' : 'border-inputBorder'
                     }`}
                     value={nome}
-                    onChangeText={(text) => {
-                      setNome(text);
-                      setModifiedFields(prev => ({ ...prev, nome: true }));
-                    }}
+                    onChangeText={setNome}
                     autoCapitalize="words"
                     scrollEnabled={false}
                   />
@@ -386,134 +1084,171 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Cognome</Text>
                   <TextInput
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      submitted && !modifiedFields.cognome && !cognome.trim() ? 'border-red-500' : 'border-inputBorder'
+                      submitted && !cognome.trim() ? 'border-red-500' : 'border-inputBorder'
                     }`}
                     value={cognome}
-                    onChangeText={(text) => {
-                      setCognome(text);
-                      setModifiedFields(prev => ({ ...prev, cognome: true }));
-                    }}
+                    onChangeText={setCognome}
                     autoCapitalize="words"
                     scrollEnabled={false}
                   />
                 </View>
 
-                {/* Email */}
+                {/* Data di Nascita */}
                 <View className="mb-5 w-full">
-                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Data di Nascita</Text>
                   <TextInput
                     className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      (submitted && !modifiedFields.email && (!email.trim() || !/^[A-Za-z0-9+_.-]+@(.+)$/.test(email.trim()))) || (errorMessage === 'Email già in uso' && mode === 'register' && !modifiedFields.email) ? 'border-red-500' : 'border-inputBorder'
+                      submitted && !dataNascita.trim() ? 'border-red-500' : 'border-inputBorder'
                     }`}
-                    value={email}
+                    placeholder="GG/MM/AAAA"
+                    placeholderTextColor="#71717A"
+                    value={dataNascita}
                     onChangeText={(text) => {
-                      setEmail(text);
-                      setModifiedFields(prev => ({ ...prev, email: true }));
-                      if (errorMessage === 'Email già in uso' && mode === 'register') {
-                        setErrorMessage('');
+                      let formatted = text.replace(/[^0-9]/g, '');
+                      if (formatted.length > 2) {
+                        formatted = formatted.substring(0, 2) + '/' + formatted.substring(2);
                       }
+                      if (formatted.length > 5) {
+                        formatted = formatted.substring(0, 5) + '/' + formatted.substring(5, 9);
+                      }
+                      setDataNascita(formatted);
                     }}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
+                    keyboardType="number-pad"
+                    maxLength={10}
                     scrollEnabled={false}
                   />
                 </View>
 
-                {/* Password */}
+                {/* Genere */}
                 <View className="mb-5 w-full">
-                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Password</Text>
-                  <TextInput
-                    key={`password_${mode}`}
-                    className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      (submitted && !modifiedFields.password && !(passwordRef.current || '').trim()) || (errorMessage === 'Le password non coincidono' && mode === 'register') ? 'border-red-500' : 'border-inputBorder'
-                    }`}
-                    onChangeText={(text) => {
-                      passwordRef.current = text;
-                      setModifiedFields(prev => ({ ...prev, password: true }));
-                      if (errorMessage === 'Le password non coincidono' && mode === 'register') {
-                        setErrorMessage('');
-                      }
-                    }}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    scrollEnabled={false}
-                    autoCorrect={false}
-                    textContentType="oneTimeCode"
-                  />
-                </View>
-
-                {/* Conferma Password */}
-                <View className="mb-5 w-full">
-                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Conferma Password</Text>
-                  <TextInput
-                    key={`confirmPassword_${mode}`}
-                    className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
-                      (submitted && !modifiedFields.confirmPassword && !(confirmPasswordRef.current || '').trim()) || (errorMessage === 'Le password non coincidono' && mode === 'register') ? 'border-red-500' : 'border-inputBorder'
-                    }`}
-                    onChangeText={(text) => {
-                      confirmPasswordRef.current = text;
-                      setModifiedFields(prev => ({ ...prev, confirmPassword: true }));
-                      if (errorMessage === 'Le password non coincidono' && mode === 'register') {
-                        setErrorMessage('');
-                      }
-                    }}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    scrollEnabled={false}
-                    autoCorrect={false}
-                    textContentType="oneTimeCode"
-                  />
-                </View>
-                {/* Blocco Dati Opzionali */}
-                <View className="border border-borderDark/50 bg-[#16161A]/40 rounded-2xl p-4 mb-6">
-                  <Text className="text-zinc-500 text-[11px] font-bold uppercase tracking-wider mb-4">Informazioni Fisiche (Opzionali)</Text>
-
-                  {/* Peso & Altezza Row */}
-                  <View className="flex-row gap-4 mb-4">
-                    <View className="flex-1">
-                      <Text className="text-zinc-400 text-xs font-bold tracking-wider mb-2">PESO (kg)</Text>
-                      <TextInput
-                        className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                        value={peso}
-                        onChangeText={setPeso}
-                        keyboardType="decimal-pad"
-                        scrollEnabled={false}
-                      />
-                    </View>
-                    <View className="flex-1">
-                      <Text className="text-zinc-400 text-xs font-bold tracking-wider mb-2">ALTEZZA (cm)</Text>
-                      <TextInput
-                        className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                        value={altezza}
-                        onChangeText={setAltezza}
-                        keyboardType="numeric"
-                        scrollEnabled={false}
-                      />
-                    </View>
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Genere</Text>
+                  <View className="flex-row justify-between gap-3">
+                    {['MASCHIO', 'FEMMINA', 'ALTRO'].map((g) => {
+                      const label = g === 'MASCHIO' ? 'Maschio' : g === 'FEMMINA' ? 'Femmina' : 'Altro';
+                      const isSelected = selectedGender === g;
+                      return (
+                        <TouchableOpacity
+                          key={g}
+                          onPress={() => setSelectedGender(isSelected ? null : g)}
+                          className={`flex-1 py-3 rounded-xl border items-center justify-center ${
+                            isSelected ? 'bg-white border-white' : 'bg-inputDark border-inputBorder'
+                          }`}
+                        >
+                          <Text className={`text-xs font-bold ${isSelected ? 'text-zinc-950' : 'text-zinc-400'}`}>
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
+                </View>
 
-                  {/* Genere Selection Chips */}
-                  <View className="w-full">
-                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Genere</Text>
-                    <View className="flex-row justify-between gap-3">
-                      {['MASCHIO', 'FEMMINA', 'ALTRO'].map((g) => {
-                        const label = g === 'MASCHIO' ? 'Maschio' : g === 'FEMMINA' ? 'Femmina' : 'Altro';
-                        const isSelected = selectedGender === g;
-                        return (
-                          <TouchableOpacity
-                            key={g}
-                            onPress={() => setSelectedGender(isSelected ? null : g)}
-                            className={`flex-1 py-3 rounded-xl border items-center justify-center ${
-                              isSelected ? 'bg-white border-white' : 'bg-inputDark border-inputBorder'
-                            }`}
-                          >
-                            <Text className={`text-xs font-bold ${isSelected ? 'text-zinc-950' : 'text-zinc-400'}`}>
-                              {label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
+
+                <TouchableOpacity 
+                  className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
+                  activeOpacity={0.8}
+                  onPress={handleStep3Next}
+                >
+                  <Text className="text-zinc-950 text-[15px] font-bold">Avanti</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </Animated.View>
+
+          {/* STEP 4 (FOTO PROFILO) */}
+          <Animated.View 
+            style={[{ transform: [{ translateX: anims.reg4 }] }, styles.absoluteScreen]} 
+            pointerEvents={currentScreen === 'reg4' ? 'auto' : 'none'}
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="mt-2" />
+
+              {renderStepIndicator('reg4')}
+              {renderMessages('reg4')}
+
+              <View className="w-full">
+                <View className="mb-6 items-center">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-1 text-center">Immagine Profilo</Text>
+                  <Text className="text-zinc-500 text-[13px] leading-5 text-center">Puoi anche aggiungerla in seguito</Text>
+                </View>
+
+                <View className="items-center py-6">
+                  {/* Photo Upload Container */}
+                  <TouchableOpacity 
+                    className="w-40 h-40 rounded-full bg-inputDark border-2 border-dashed border-inputBorder justify-center items-center overflow-hidden mb-8 shadow-lg shadow-black/20"
+                    activeOpacity={0.8}
+                    onPress={handlePickImage}
+                  >
+                    {profileImage ? (
+                      <Image source={{ uri: profileImage }} className="w-full h-full" />
+                    ) : (
+                      <View className="items-center justify-center">
+                        <Ionicons name="camera-outline" size={48} color="#A1A1AA" />
+                        <Text className="text-zinc-500 text-xs font-semibold mt-2">Clicca qui</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    className="bg-white h-12 rounded-xl justify-center items-center w-full shadow-lg shadow-white/5 mb-4" 
+                    activeOpacity={0.8}
+                    onPress={handleStep4Next}
+                  >
+                    <Text className="text-zinc-950 text-[15px] font-bold">
+                      {profileImage ? 'Avanti' : ruolo === 'ATLETA' ? 'Avanti' : 'Registrati'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </ScrollView>
+          </Animated.View>
+
+          {/* STEP 5 (DATI FISICI PER ATLETA) */}
+          <Animated.View 
+            style={[{ transform: [{ translateX: anims.reg5 }] }, styles.absoluteScreen]} 
+            pointerEvents={currentScreen === 'reg5' ? 'auto' : 'none'}
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="mt-2" />
+
+              {renderStepIndicator('reg5')}
+              {renderMessages('reg5')}
+
+              <View className="w-full">
+                <View className="mb-6 items-center">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-1 text-center">Dati Fisici</Text>
+                  <Text className="text-zinc-500 text-[13px] leading-5 text-center">Puoi anche aggiungerli in seguito</Text>
+                </View>
+
+                {/* Peso & Altezza Row */}
+                <View className="flex-row gap-4 mb-8">
+                  <View className="flex-1">
+                    <Text className="text-zinc-400 text-xs font-bold tracking-wider mb-2">PESO (kg)</Text>
+                    <TextInput
+                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                      value={peso}
+                      onChangeText={setPeso}
+                      keyboardType="decimal-pad"
+                      scrollEnabled={false}
+                    />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-zinc-400 text-xs font-bold tracking-wider mb-2">ALTEZZA (cm)</Text>
+                    <TextInput
+                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                      value={altezza}
+                      onChangeText={setAltezza}
+                      keyboardType="numeric"
+                      scrollEnabled={false}
+                    />
                   </View>
                 </View>
 
@@ -525,92 +1260,59 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                   <Text className="text-zinc-950 text-[15px] font-bold">Crea Account</Text>
                 </TouchableOpacity>
               </View>
-            )}
+            </ScrollView>
+          </Animated.View>
 
-            {mode === 'forgot' && (
-              <View className="w-full">
-                <Text className="text-zinc-400 text-sm leading-6 mb-6">
-                  Inserisci l'indirizzo email associato al tuo account.
-                </Text>
-                <View className="mb-6 w-full">
-                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
-                  <TextInput
-                    className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    scrollEnabled={false}
-                  />
-                </View>
-
-                <TouchableOpacity className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" activeOpacity={0.8}>
-                  <Text className="text-zinc-950 text-[15px] font-bold">Invia Link</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => setMode('login')} className="flex-row items-center justify-center mt-6">
-                  <Ionicons name="arrow-back-outline" size={16} color="#00F0FF" />
-                  <Text className="text-accentCyan text-sm font-semibold"> Torna al login</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Success screen */}
-            {mode === 'success' && (
-              <View className="w-full items-center py-6">
-                <Ionicons name="checkmark-circle" size={80} color="#00F0FF" className="mb-6" />
-                <Text className="text-white text-xl font-bold text-center mb-2">
-                  Registrazione avvenuta!
-                </Text>
-                <Text className="text-zinc-400 text-sm text-center mb-8">
-                  Il tuo account è stato creato con successo. Ora puoi effettuare l'accesso.
-                </Text>
-                <TouchableOpacity 
-                  className="bg-white h-12 rounded-xl justify-center items-center w-full shadow-lg shadow-white/5"
-                  activeOpacity={0.8}
-                  onPress={() => setMode('login')}
-                >
-                  <Text className="text-zinc-950 text-[15px] font-bold">Accedi ora</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Toggle Login/Register footer */}
-            {mode !== 'forgot' && mode !== 'success' && (
-              <View className="flex-row justify-center items-center mt-6">
-                <Text className="text-zinc-400 text-sm">
-                  {mode === 'login' ? 'Non hai un account?' : 'Hai già un account?'}
-                </Text>
-                <TouchableOpacity onPress={() => setMode(mode === 'login' ? 'register' : 'login')}>
-                  <Text className="text-white text-sm font-bold ml-1.5 underline">
-                    {mode === 'login' ? 'Registrati' : 'Accedi'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {/* Social Login Separator */}
-            {mode !== 'forgot' && mode !== 'success' && (
-              <View className="flex-row items-center my-6">
-                <View className="flex-1 h-[1px] bg-borderDark" />
-                <Text className="text-zinc-500 text-xs mx-4 font-bold uppercase tracking-wider">Oppure</Text>
-                <View className="flex-1 h-[1px] bg-borderDark" />
-              </View>
-            )}
-
-            {/* Social Login Buttons */}
-            {mode !== 'forgot' && mode !== 'success' && (
-              <View className="flex-row justify-between gap-4">
-                <TouchableOpacity className="flex-1 flex-row items-center justify-center bg-[#1E1E24] border border-[#303038] h-12 rounded-xl gap-2.5" activeOpacity={0.8}>
-                  <Ionicons name="logo-google" size={20} color="#FFFFFF" />
-                  <Text className="text-white text-sm font-semibold">Google</Text>
-                </TouchableOpacity>
-                <TouchableOpacity className="flex-1 flex-row items-center justify-center bg-[#1E1E24] border border-[#303038] h-12 rounded-xl gap-2.5" activeOpacity={0.8}>
-                  <Ionicons name="logo-apple" size={20} color="#FFFFFF" />
-                  <Text className="text-white text-sm font-semibold">Apple</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </ScrollView>
         </KeyboardAvoidingView>
+      </Animated.View>
+
+      {/* 4. SUCCESS SCREEN */}
+      <Animated.View 
+        style={[{ transform: [{ translateX: anims.success }] }, styles.absoluteScreen, !activeSections.includes('success') && { display: 'none' }]} 
+        pointerEvents={currentScreen === 'success' ? 'auto' : 'none'}
+      >
+        {/* Header locale per Success Screen */}
+        <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+          <View className="w-10" />
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-bold text-white tracking-tight">Registrazione</Text>
+          </View>
+          <View className="w-10" />
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+        >
+          <View className="w-full items-center py-12">
+            <Ionicons name="checkmark-circle" size={80} color="#00F0FF" className="mb-6" />
+            <Text className="text-white text-xl font-bold text-center mb-2">
+              Registrazione avvenuta!
+            </Text>
+            <Text className="text-zinc-400 text-sm text-center mb-8">
+              Il tuo account è stato creato con successo.{"\n"}Ora puoi effettuare l'accesso.
+            </Text>
+            <TouchableOpacity 
+              className="bg-white h-12 rounded-xl justify-center items-center w-full shadow-lg shadow-white/5"
+              activeOpacity={0.8}
+              onPress={() => setMode('login')}
+            >
+              <Text className="text-zinc-950 text-[15px] font-bold">Accedi ora</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </Animated.View>
+
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  absoluteScreen: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  }
+});

@@ -17,6 +17,9 @@ public class FileController {
     @Autowired
     private FileStorageService fileStorageService;
 
+    @Autowired
+    private com.mondopt.repository.UtenteRepository utenteRepository;
+
     @PostMapping("/upload-immagine-profilo")
     public ResponseEntity<?> uploadImmagineProfilo(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) {
@@ -35,6 +38,50 @@ public class FileController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(Map.of("errore", "Errore durante il caricamento del file: " + e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/pulisci-immagini-orfane")
+    public ResponseEntity<?> pulisciImmaginiOrfane() {
+        try {
+            // 1. Get all active profile image URLs from database
+            java.util.List<com.mondopt.entity.Utente> utenti = utenteRepository.findAll();
+            java.util.Set<String> activeKeys = new java.util.HashSet<>();
+            for (com.mondopt.entity.Utente u : utenti) {
+                String url = u.getUrlImmagineProfilo();
+                if (url != null && !url.trim().isEmpty()) {
+                    int index = url.indexOf("immagini-profilo/");
+                    if (index != -1) {
+                        activeKeys.add(url.substring(index));
+                    }
+                }
+            }
+
+            // 2. List all objects in S3 under prefix "immagini-profilo/"
+            java.util.List<String> s3Keys = fileStorageService.listKeys("immagini-profilo/");
+
+            // 3. Compare and delete orphaned objects
+            java.util.List<String> deletedKeys = new java.util.ArrayList<>();
+            for (String key : s3Keys) {
+                // Ignore the prefix directory itself if S3 returns it
+                if (key.equals("immagini-profilo/")) {
+                    continue;
+                }
+                if (!activeKeys.contains(key)) {
+                    fileStorageService.delete(key);
+                    deletedKeys.add(key);
+                }
+            }
+
+            return ResponseEntity.ok(Map.of(
+                "messaggio", "Pulizia completata con successo",
+                "immaginiRimosse", deletedKeys,
+                "quantitaRimossa", deletedKeys.size()
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("errore", "Errore durante la pulizia: " + e.getMessage()));
         }
     }
 }
