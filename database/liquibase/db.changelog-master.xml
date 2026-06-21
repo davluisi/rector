@@ -8,5 +8,7 @@
     <include file="changelog/0001-creazione-tabella-utente.xml" relativeToChangelogFile="true"/>
     <include file="changelog/0002-modifica-struttura-utente-e-tabelle-atleta-pt.xml" relativeToChangelogFile="true"/>
     <include file="changelog/0003-creazione-tabella-otp.xml" relativeToChangelogFile="true"/>
+    <include file="changelog/0004-aggiunta-colonna-ruolo-utente.xml" relativeToChangelogFile="true"/>
+    <include file="changelog/0005-aggiunta-campi-documenti-personal-trainer.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './global.css';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -7,11 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Text,
-  Animated,
   Platform,
   StatusBar as RNStatusBar,
-  PanResponder,
-  Dimensions,
   Keyboard
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -24,6 +21,7 @@ import FilterSelector from './components/FilterSelector';
 import TrainerCard from './components/TrainerCard';
 import AuthScreen from './components/AuthScreen';
 import ProfileScreen from './components/ProfileScreen';
+import { detectActiveApiUrl } from './config';
 
 // Mock data for Personal Trainers
 const TRAINERS = [
@@ -56,8 +54,6 @@ const TRAINERS = [
   },
 ];
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
-
 export default function App() {
   const [search, setSearch] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('Tutti');
@@ -65,67 +61,11 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   
   const [activeTab, setActiveTab] = useState('world');
-  
-  // Independent Animated.Value offsets for each tab to enable clean transitions
-  const barbellX = useRef(new Animated.Value(-SCREEN_WIDTH)).current;
-  const worldX = useRef(new Animated.Value(0)).current; // starts at center (0)
-  const profileX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
-  const prevTabRef = useRef('world');
 
   useEffect(() => {
-    const prevTab = prevTabRef.current;
-    prevTabRef.current = activeTab;
-
-    // Direct transition between extreme tabs (barbell <-> profile):
-    // Move the middle tab (world) offscreen immediately so it isn't seen passing through.
-    if (prevTab === 'barbell' && activeTab === 'profile') {
-      worldX.setValue(-SCREEN_WIDTH);
-    } else if (prevTab === 'profile' && activeTab === 'barbell') {
-      worldX.setValue(SCREEN_WIDTH);
-    }
-
-    // Set target positions
-    let targetBarbell = -SCREEN_WIDTH;
-    let targetWorld = 0;
-    let targetProfile = SCREEN_WIDTH;
-
-    if (activeTab === 'barbell') {
-      targetBarbell = 0;
-      targetWorld = SCREEN_WIDTH;
-      targetProfile = SCREEN_WIDTH;
-    } else if (activeTab === 'world') {
-      targetBarbell = -SCREEN_WIDTH;
-      targetWorld = 0;
-      targetProfile = SCREEN_WIDTH;
-    } else if (activeTab === 'profile') {
-      targetBarbell = -SCREEN_WIDTH;
-      targetWorld = -SCREEN_WIDTH;
-      targetProfile = 0;
-    }
-
-    Animated.parallel([
-      Animated.timing(barbellX, {
-        toValue: targetBarbell,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(worldX, {
-        toValue: targetWorld,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-      Animated.timing(profileX, {
-        toValue: targetProfile,
-        duration: 250,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [activeTab]);
-
-  const barbellTranslateX = barbellX;
-  const worldTranslateX = worldX;
-  const profileTranslateX = profileX;
-
+    detectActiveApiUrl();
+  }, []);
+  
   const filters = ['Tutti', 'Bodybuilding', 'Dimagrimento', 'Funzionale', 'Pilates'];
 
   const handleLogout = () => {
@@ -145,117 +85,87 @@ export default function App() {
 
 
       {/* Area Contenuto Principale */}
-      <View 
-        className="flex-1 relative"
-      >
-        
-
+      <View style={{ flex: 1 }}>
         {/* Schermata Home (World) */}
-        <Animated.View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            transform: [{ translateX: worldTranslateX }],
-          }}
-        >
-          {/* Header locale per la Home */}
-          <View className="flex-row items-center justify-center py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
-            <Image
-              source={require('./assets/logo.png')}
-              className="h-10 w-[120px]"
-              resizeMode="contain"
-            />
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-
-            {/* Hero Banner / Intro */}
-            <HeroSection />
-
-            {/* Search Bar */}
-            <SearchBar value={search} onChangeText={setSearch} />
-
-            {/* Quick Filters */}
-            <FilterSelector
-              filters={filters}
-              selectedFilter={selectedFilter}
-              onSelectFilter={setSelectedFilter}
-            />
-
-            {/* Trainers Section Header */}
-            <View className="flex-row justify-between items-center mx-5 mt-7 mb-4">
-              <Text className="text-lg font-bold text-white">I migliori Professionisti</Text>
-              <TouchableOpacity>
-                <Text className="text-accentCyan text-sm font-semibold">Vedi tutti</Text>
-              </TouchableOpacity>
+        {activeTab === 'world' && (
+          <View style={{ flex: 1 }}>
+            {/* Header locale per la Home */}
+            <View className="flex-row items-center justify-center py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+              <Image
+                source={require('./assets/logo.png')}
+                className="h-10 w-[120px]"
+                resizeMode="contain"
+              />
             </View>
 
-            {/* Trainer Cards */}
-            {TRAINERS.map((trainer) => (
-              <TrainerCard key={trainer.id} trainer={trainer} />
-            ))}
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+              {/* Hero Banner / Intro */}
+              <HeroSection />
 
+              {/* Search Bar */}
+              <SearchBar value={search} onChangeText={setSearch} />
 
+              {/* Quick Filters */}
+              <FilterSelector
+                filters={filters}
+                selectedFilter={selectedFilter}
+                onSelectFilter={setSelectedFilter}
+              />
 
-          </ScrollView>
-        </Animated.View>
+              {/* Trainers Section Header */}
+              <View className="flex-row justify-between items-center mx-5 mt-7 mb-4">
+                <Text className="text-lg font-bold text-white">I migliori Professionisti</Text>
+                <TouchableOpacity>
+                  <Text className="text-accentCyan text-sm font-semibold">Vedi tutti</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Trainer Cards */}
+              {TRAINERS.map((trainer) => (
+                <TrainerCard key={trainer.id} trainer={trainer} />
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Schermata Allenamenti (Barbell) */}
-        <Animated.View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            transform: [{ translateX: barbellTranslateX }],
-          }}
-          className="bg-premiumDark"
-        >
-          {/* Header locale per Allenamenti */}
-          <View className="flex-row items-center justify-center py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
-            <Text className="text-lg font-bold text-white tracking-tight">Allenamenti</Text>
-          </View>
+        {activeTab === 'barbell' && (
+          <View style={{ flex: 1 }} className="bg-premiumDark">
+            {/* Header locale per Allenamenti */}
+            <View className="flex-row items-center justify-center py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+              <Text className="text-lg font-bold text-white tracking-tight">Allenamenti</Text>
+            </View>
 
-          <View className="flex-1 justify-center items-center px-6">
-            <Ionicons name="barbell-outline" size={64} color="#303038" className="mb-4" />
-            <Text className="text-zinc-500 font-bold text-lg text-center">Allenamenti</Text>
-            <Text className="text-zinc-600 text-sm text-center mt-1">Nessuna scheda caricata per il momento.</Text>
+            <View className="flex-1 justify-center items-center px-6">
+              <Ionicons name="barbell-outline" size={64} color="#303038" className="mb-4" />
+              <Text className="text-zinc-500 font-bold text-lg text-center">Allenamenti</Text>
+              <Text className="text-zinc-600 text-sm text-center mt-1">Nessuna scheda caricata per il momento.</Text>
+            </View>
           </View>
-        </Animated.View>
+        )}
 
         {/* Auth Screen (compresa tra topbar e bottombar) */}
-        <Animated.View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            transform: [{ translateX: profileTranslateX }],
-          }}
-        >
-          {currentUser ? (
-            <ProfileScreen
-              user={currentUser}
-              onLogout={handleLogout}
-              onUpdateUser={setCurrentUser}
-            />
-          ) : (
-            <AuthScreen
-              visible={activeTab === 'profile'}
-              onClose={() => setActiveTab('world')}
-              mode={authMode}
-              setMode={setAuthMode}
-              onLoginSuccess={(user) => {
-                setCurrentUser(user);
-              }}
-            />
-          )}
-        </Animated.View>
+        {activeTab === 'profile' && (
+          <View style={{ flex: 1 }}>
+            {currentUser ? (
+              <ProfileScreen
+                user={currentUser}
+                onLogout={handleLogout}
+                onUpdateUser={setCurrentUser}
+              />
+            ) : (
+              <AuthScreen
+                visible={activeTab === 'profile'}
+                onClose={() => setActiveTab('world')}
+                mode={authMode}
+                setMode={setAuthMode}
+                onLoginSuccess={(user) => {
+                  setCurrentUser(user);
+                }}
+              />
+            )}
+          </View>
+        )}
       </View>
 
       {/* Bottom Navigation Bar */}

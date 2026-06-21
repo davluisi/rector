@@ -46,6 +46,29 @@ public class Utente {
     @Column(name = "genere", length = 20)
     private Genere genere;
 
+    public static final String RUOLO_PT = "pt";
+    public static final String RUOLO_ATLETA = "utente_atleta";
+    public static final String RUOLO_ENTRAMBI = "entrambi";
+
+    @Column(name = "ruolo", length = 20)
+    private String ruolo;
+
+    @PrePersist
+    @PreUpdate
+    public void aggiornaRuoloAutomatico() {
+        boolean isAtleta = this.atleta != null;
+        boolean isPt = this.personalTrainer != null;
+        if (isAtleta && isPt) {
+            this.ruolo = RUOLO_ENTRAMBI;
+        } else if (isPt) {
+            this.ruolo = RUOLO_PT;
+        } else if (isAtleta) {
+            this.ruolo = RUOLO_ATLETA;
+        } else {
+            this.ruolo = null;
+        }
+    }
+
     public BigDecimal getPeso() {
         return atleta != null ? atleta.getPeso() : null;
     }

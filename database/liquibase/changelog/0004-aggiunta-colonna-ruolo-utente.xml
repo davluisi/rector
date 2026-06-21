@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="0004-aggiunta-colonna-ruolo-utente" author="mondopt">
+        <!-- 1. Aggiungi colonna ruolo a utente -->
+        <addColumn tableName="utente">
+            <column name="ruolo" type="VARCHAR(20)"/>
+        </addColumn>
+
+        <!-- 2. Popola la colonna per i record esistenti -->
+        <sql>
+            UPDATE utente u
+            SET ruolo = CASE
+                WHEN (SELECT COUNT(*) FROM personal_trainer pt WHERE pt.id_utente = u.id) > 0 
+                 AND (SELECT COUNT(*) FROM utente_atleta ua WHERE ua.id_utente = u.id) > 0 THEN 'entrambi'
+                WHEN (SELECT COUNT(*) FROM personal_trainer pt WHERE pt.id_utente = u.id) > 0 THEN 'pt'
+                WHEN (SELECT COUNT(*) FROM utente_atleta ua WHERE ua.id_utente = u.id) > 0 THEN 'utente_atleta'
+                ELSE 'utente_atleta'
+            END;
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

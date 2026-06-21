@@ -169,12 +169,17 @@ public class AuthController {
         String hashedPassword = org.mindrot.jbcrypt.BCrypt.hashpw(request.getPassword(), org.mindrot.jbcrypt.BCrypt.gensalt());
         utente.setPassword(hashedPassword);
         
-        if ("PERSONAL_TRAINER".equalsIgnoreCase(request.getRuolo())) {
+        if ("PERSONAL_TRAINER".equalsIgnoreCase(request.getRuolo()) || "pt".equalsIgnoreCase(request.getRuolo())) {
             com.mondopt.entity.PersonalTrainer pt = new com.mondopt.entity.PersonalTrainer();
             pt.setUtente(utente);
+            pt.setScadenzaDocumento(request.getScadenzaDocumento());
+            pt.setDocumentoFronteKey(request.getDocumentoFronteKey());
+            pt.setDocumentoRetroKey(request.getDocumentoRetroKey());
+            pt.setCertificazioniKey(request.getCertificazioniKey());
+            pt.setVerificato(false);
             utente.setPersonalTrainer(pt);
         } else {
-            // Default: ATLETA
+            // Default: ATLETA / utente_atleta
             com.mondopt.entity.UtenteAtleta atleta = new com.mondopt.entity.UtenteAtleta();
             atleta.setUtente(utente);
             atleta.setPeso(request.getPeso());
@@ -224,7 +229,7 @@ public class AuthController {
             "peso", utente.getPeso() != null ? utente.getPeso().toString() : "",
             "altezza", utente.getAltezza() != null ? utente.getAltezza().toString() : "",
             "genere", utente.getGenere() != null ? utente.getGenere().name() : "",
-            "ruolo", utente.getPersonalTrainer() != null ? "PERSONAL_TRAINER" : "ATLETA",
+            "ruolo", utente.getRuolo() != null ? utente.getRuolo() : "",
             "dataNascita", utente.getDataNascita() != null ? utente.getDataNascita().toString() : ""
         ));
     }
@@ -314,7 +319,7 @@ public class AuthController {
             "peso", utente.getPeso() != null ? utente.getPeso().toString() : "",
             "altezza", utente.getAltezza() != null ? utente.getAltezza().toString() : "",
             "genere", utente.getGenere() != null ? utente.getGenere().name() : "",
-            "ruolo", utente.getPersonalTrainer() != null ? "PERSONAL_TRAINER" : "ATLETA",
+            "ruolo", utente.getRuolo() != null ? utente.getRuolo() : "",
             "dataNascita", utente.getDataNascita() != null ? utente.getDataNascita().toString() : ""
         ));
     }

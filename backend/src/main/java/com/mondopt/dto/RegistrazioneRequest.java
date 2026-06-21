@@ -20,4 +20,8 @@ public class RegistrazioneRequest {
     private String urlImmagineProfilo;
     private java.time.LocalDate dataNascita;
     private String ruolo;
+    private java.time.LocalDate scadenzaDocumento;
+    private String documentoFronteKey;
+    private String documentoRetroKey;
+    private String certificazioniKey;
 }

@@ -84,4 +84,25 @@ public class FileController {
                 .body(Map.of("errore", "Errore durante la pulizia: " + e.getMessage()));
         }
     }
+
+    @PostMapping("/upload-documento-pt")
+    public ResponseEntity<?> uploadDocumentoPt(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Il file caricato è vuoto"));
+        }
+
+        try {
+            String key = fileStorageService.uploadDocumentoPt(
+                file.getOriginalFilename(),
+                file.getInputStream(),
+                file.getContentType()
+            );
+            return ResponseEntity.ok(Map.of("key", key));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("errore", "Errore durante il caricamento del documento: " + e.getMessage()));
+        }
+    }
 }

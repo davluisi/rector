@@ -3,7 +3,9 @@ import { View, Text, TouchableOpacity, Image, ScrollView, TextInput, KeyboardAvo
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
-const API_URL = 'http://192.168.1.180:8080';
+import { config } from '../config';
+
+const getApiUrl = () => config.apiUrl;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const formatBirthDate = (dateStr) => {
@@ -126,7 +128,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
       try {
         setErrorMessage('');
         setSuccessMessage('Caricamento immagine...');
-        const uploadResponse = await fetch(`${API_URL}/api/files/upload-immagine-profilo`, {
+        const uploadResponse = await fetch(`${getApiUrl()}/api/files/upload-immagine-profilo`, {
           method: 'POST',
           body: formData,
           headers: {
@@ -139,7 +141,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           const newImageUrl = uploadData.url;
           setSuccessMessage('Salvataggio immagine...');
           
-          const saveResponse = await fetch(`${API_URL}/api/auth/aggiorna/${user.id}`, {
+          const saveResponse = await fetch(`${getApiUrl()}/api/auth/aggiorna/${user.id}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -289,7 +291,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
     try {
       setErrorMessage('');
       setSuccessMessage('Rimozione immagine...');
-      const response = await fetch(`${API_URL}/api/auth/aggiorna/${user.id}`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/aggiorna/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -366,7 +368,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
       if (cleanEmail !== user.email && !isVerifyingEmailOtp) {
         try {
           setSuccessMessage('Invio codice OTP in corso...');
-          const response = await fetch(`${API_URL}/api/auth/invia-otp`, {
+          const response = await fetch(`${getApiUrl()}/api/auth/invia-otp`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -413,7 +415,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/aggiorna/${user.id}`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/aggiorna/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -462,7 +464,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
 
     try {
       const cleanEmail = editingValue.trim().toLowerCase();
-      const response = await fetch(`${API_URL}/api/auth/verifica-otp`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/verifica-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -494,7 +496,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
     setErrorMessage('');
     setSuccessMessage('Rinvio codice OTP...');
     try {
-      const response = await fetch(`${API_URL}/api/auth/invia-otp`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/invia-otp`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -537,7 +539,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/auth/cambia-password/${user.id}`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/cambia-password/${user.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -667,7 +669,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             </View>
 
             {/* Box Peso (Only for Atleta) */}
-            {user.ruolo === 'ATLETA' && (
+            {(user.ruolo === 'utente_atleta' || user.ruolo === 'entrambi') && (
               <View style={{ width: (SCREEN_WIDTH - 60) / 2 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-2xl p-4 items-center h-24 justify-center">
                 <Ionicons name="scale-outline" size={22} color="#FFFFFF" className="mb-1" />
                 <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Peso</Text>
@@ -678,7 +680,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             )}
 
             {/* Box Altezza (Only for Atleta) */}
-            {user.ruolo === 'ATLETA' && (
+            {(user.ruolo === 'utente_atleta' || user.ruolo === 'entrambi') && (
               <View style={{ width: (SCREEN_WIDTH - 60) / 2 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-2xl p-4 items-center h-24 justify-center">
                 <Ionicons name="resize-outline" size={22} color="#FFFFFF" className="mb-1" />
                 <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Altezza</Text>
@@ -826,7 +828,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             </TouchableOpacity>
 
             {/* Peso (Only for Atleta) */}
-            {user.ruolo === 'ATLETA' && (
+            {(user.ruolo === 'utente_atleta' || user.ruolo === 'entrambi') && (
               <TouchableOpacity 
                 onPress={() => { setEditingField('peso'); setEditingValue(peso); }} 
                 className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
@@ -838,7 +840,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             )}
 
             {/* Altezza (Only for Atleta) */}
-            {user.ruolo === 'ATLETA' && (
+            {(user.ruolo === 'utente_atleta' || user.ruolo === 'entrambi') && (
               <TouchableOpacity 
                 onPress={() => { setEditingField('altezza'); setEditingValue(altezza); }} 
                 className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
