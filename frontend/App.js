@@ -90,10 +90,10 @@ export default function App() {
         {activeTab === 'world' && (
           <View style={{ flex: 1 }}>
             {/* Header locale per la Home */}
-            <View className="flex-row items-center justify-center py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+            <View className="flex-row items-center justify-center py-1.5 border-b border-[#E09D20]/40 h-16 bg-[#FEB32F] z-50">
               <Image
-                source={require('./assets/logo.png')}
-                className="h-10 w-[120px]"
+                source={require('./assets/logo-esteso.png')}
+                className="h-12 w-[260px]"
                 resizeMode="contain"
               />
             </View>
