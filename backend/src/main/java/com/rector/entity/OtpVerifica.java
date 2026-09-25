@@ -1,4 +1,4 @@
-package com.mondopt.entity;
+package com.rector.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;

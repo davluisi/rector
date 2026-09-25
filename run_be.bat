@@ -1,6 +1,6 @@
 @echo off
 
 cd backend
-echo Starting MondoPT Spring Boot Backend...
+echo Starting Rector Spring Boot Backend...
 mvn spring-boot:run
 pause

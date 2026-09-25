@@ -1,6 +1,6 @@
-# MondoPT 🏋️‍♂️💪
+# Rector 🏋️‍♂️💪
 
-MondoPT è una piattaforma moderna progettata per connettere **atleti** e **personal trainer**. Consente agli atleti di trovare il professionista ideale per le proprie esigenze e ricevere schede e programmi di allenamento personalizzati.
+Rector è una piattaforma moderna progettata per connettere **atleti** e **personal trainer**. Consente agli atleti di trovare il professionista ideale per le proprie esigenze e ricevere schede e programmi di allenamento personalizzati.
 
 ---
 
@@ -9,7 +9,7 @@ MondoPT è una piattaforma moderna progettata per connettere **atleti** e **pers
 Il progetto è suddiviso in un'architettura modulare composta da frontend, backend e database:
 
 ### 📱 Frontend (App Mobile)
-*   **Framework**: [React Native](https://reactnative.dev/) con [Expo (SDK 54)](https://expo.dev/)
+*   **Framework**: [React Native](https://reactnative.dev/) con [Expo (SDK 57)](https://expo.dev/)
 *   **Stile**: [Tailwind CSS](https://tailwindcss.com/) tramite [NativeWind v4](https://www.nativewind.dev/)
 *   **Animazioni**: [React Native Reanimated v4](https://docs.swmansion.com/react-native-reanimated/)
 *   **Icone**: `@expo/vector-icons` (Ionicons)
@@ -29,7 +29,7 @@ Il progetto è suddiviso in un'architettura modulare composta da frontend, backe
 ## 📁 Struttura del Progetto
 
 ```text
-MondoPT/
+Rector/
 ├── backend/          # Sorgenti dell'API in Spring Boot (Java)
 ├── frontend/         # Applicazione mobile Expo/React Native (Javascript)
 ├── database/         # Configurazione PostgreSQL e script SQL di inizializzazione

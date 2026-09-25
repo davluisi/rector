@@ -1,6 +1,6 @@
-package com.mondopt.dto;
+package com.rector.dto;
 
-import com.mondopt.entity.Genere;
+import com.rector.entity.Genere;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;

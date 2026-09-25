@@ -1,10 +1,10 @@
-package com.mondopt;
+package com.rector;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class MondoPtApplication {
+public class RectorApplication {
 
 	public static class StatusResponse {
 		private String status;
@@ -25,6 +25,6 @@ public class MondoPtApplication {
 	}
 
 	public static void main(String[] args) {
-		SpringApplication.run(MondoPtApplication.class, args);
+		SpringApplication.run(RectorApplication.class, args);
 	}
 }

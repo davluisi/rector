@@ -13,7 +13,7 @@ export async function detectActiveApiUrl() {
     try {
       const controller = new AbortController();
       const id = setTimeout(() => controller.abort(), 800); // 800ms timeout
-      const res = await fetch(`${url}/api/auth/verifica-email?email=ping@mondopt.com`, {
+      const res = await fetch(`${url}/api/auth/verifica-email?email=ping@rector.com`, {
         signal: controller.signal
       });
       clearTimeout(id);

@@ -3,9 +3,9 @@ version: '3.8'
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: mondopt-db
+    container_name: rector-db
     environment:
-      POSTGRES_DB: mondopt
+      POSTGRES_DB: rector
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgrespassword
     ports:

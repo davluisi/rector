@@ -1,4 +1,4 @@
-package com.mondopt.dto;
+package com.rector.dto;
 
 import lombok.Getter;
 import lombok.Setter;

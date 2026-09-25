@@ -1,13 +1,13 @@
-package com.mondopt.controller;
+package com.rector.controller;
 
-import com.mondopt.dto.RegistrazioneRequest;
-import com.mondopt.dto.LoginRequest;
-import com.mondopt.entity.Utente;
-import com.mondopt.entity.OtpVerifica;
-import com.mondopt.repository.UtenteRepository;
-import com.mondopt.repository.OtpVerificaRepository;
-import com.mondopt.service.FileStorageService;
-import com.mondopt.service.EmailService;
+import com.rector.dto.RegistrazioneRequest;
+import com.rector.dto.LoginRequest;
+import com.rector.entity.Utente;
+import com.rector.entity.OtpVerifica;
+import com.rector.repository.UtenteRepository;
+import com.rector.repository.OtpVerificaRepository;
+import com.rector.service.FileStorageService;
+import com.rector.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -170,7 +170,7 @@ public class AuthController {
         utente.setPassword(hashedPassword);
         
         if ("PERSONAL_TRAINER".equalsIgnoreCase(request.getRuolo()) || "pt".equalsIgnoreCase(request.getRuolo())) {
-            com.mondopt.entity.PersonalTrainer pt = new com.mondopt.entity.PersonalTrainer();
+            com.rector.entity.PersonalTrainer pt = new com.rector.entity.PersonalTrainer();
             pt.setUtente(utente);
             pt.setScadenzaDocumento(request.getScadenzaDocumento());
             pt.setDocumentoFronteKey(request.getDocumentoFronteKey());
@@ -180,7 +180,7 @@ public class AuthController {
             utente.setPersonalTrainer(pt);
         } else {
             // Default: ATLETA / utente_atleta
-            com.mondopt.entity.UtenteAtleta atleta = new com.mondopt.entity.UtenteAtleta();
+            com.rector.entity.UtenteAtleta atleta = new com.rector.entity.UtenteAtleta();
             atleta.setUtente(utente);
             atleta.setPeso(request.getPeso());
             atleta.setAltezza(request.getAltezza());

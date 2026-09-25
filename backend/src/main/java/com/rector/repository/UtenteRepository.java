@@ -1,6 +1,6 @@
-package com.mondopt.repository;
+package com.rector.repository;
 
-import com.mondopt.entity.Utente;
+import com.rector.entity.Utente;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import java.util.Optional;

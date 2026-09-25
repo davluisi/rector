@@ -1,6 +1,6 @@
-package com.mondopt.controller;
+package com.rector.controller;
 
-import com.mondopt.service.FileStorageService;
+import com.rector.service.FileStorageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +18,7 @@ public class FileController {
     private FileStorageService fileStorageService;
 
     @Autowired
-    private com.mondopt.repository.UtenteRepository utenteRepository;
+    private com.rector.repository.UtenteRepository utenteRepository;
 
     @PostMapping("/upload-immagine-profilo")
     public ResponseEntity<?> uploadImmagineProfilo(@RequestParam("file") MultipartFile file) {
@@ -45,9 +45,9 @@ public class FileController {
     public ResponseEntity<?> pulisciImmaginiOrfane() {
         try {
             // 1. Get all active profile image URLs from database
-            java.util.List<com.mondopt.entity.Utente> utenti = utenteRepository.findAll();
+            java.util.List<com.rector.entity.Utente> utenti = utenteRepository.findAll();
             java.util.Set<String> activeKeys = new java.util.HashSet<>();
-            for (com.mondopt.entity.Utente u : utenti) {
+            for (com.rector.entity.Utente u : utenti) {
                 String url = u.getUrlImmagineProfilo();
                 if (url != null && !url.trim().isEmpty()) {
                     int index = url.indexOf("immagini-profilo/");

@@ -1,6 +1,6 @@
-package com.mondopt.service.impl;
+package com.rector.service.impl;
 
-import com.mondopt.service.FileStorageService;
+import com.rector.service.FileStorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import software.amazon.awssdk.core.sync.RequestBody;

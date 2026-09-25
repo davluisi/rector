@@ -1,4 +1,4 @@
-package com.mondopt.service;
+package com.rector.service;
 
 import java.io.InputStream;
 

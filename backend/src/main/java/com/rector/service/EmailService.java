@@ -1,4 +1,4 @@
-package com.mondopt.service;
+package com.rector.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.SimpleMailMessage;
@@ -12,11 +12,11 @@ public class EmailService {
     private JavaMailSender mailSender;
 
     public void sendOtpEmail(String toEmail, String otpCode) {
-        String subject = "Verifica la tua email - MondoPT";
-        String body = "Ciao,\n\nIl tuo codice di verifica OTP per MondoPT è: " + otpCode + "\n\nQuesto codice è valido per 5 minuti.\nSe non hai richiesto questo codice, puoi ignorare questo messaggio.\n\nIl team di MondoPT";
+        String subject = "Verifica la tua email - Rector";
+        String body = "Ciao,\n\nIl tuo codice di verifica OTP per Rector è: " + otpCode + "\n\nQuesto codice è valido per 5 minuti.\nSe non hai richiesto questo codice, puoi ignorare questo messaggio.\n\nIl team di Rector";
 
         System.out.println("==================================================");
-        System.out.println("MondoPT EMAIL SIMULATION to: " + toEmail);
+        System.out.println("Rector EMAIL SIMULATION to: " + toEmail);
         System.out.println("Subject: " + subject);
         System.out.println("OTP CODE: " + otpCode);
         System.out.println("==================================================");

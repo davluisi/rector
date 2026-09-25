@@ -8,11 +8,11 @@
 		<version>3.2.5</version>
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
-	<groupId>com.mondopt</groupId>
+	<groupId>com.rector</groupId>
 	<artifactId>backend</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>MondoPT Backend</name>
-	<description>Spring Boot backend for MondoPT application</description>
+	<name>Rector Backend</name>
+	<description>Spring Boot backend for Rector application</description>
 	<properties>
 		<java.version>17</java.version>
 	</properties>

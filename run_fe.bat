@@ -1,5 +1,5 @@
 @echo off
 cd frontend
-echo Starting MondoPT React Native Frontend (Expo SDK 54)...
+echo Starting Rector React Native Frontend (Expo SDK 57)...
 npm start
 pause

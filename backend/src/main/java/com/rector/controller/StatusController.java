@@ -1,6 +1,6 @@
-package com.mondopt.controller;
+package com.rector.controller;
 
-import com.mondopt.MondoPtApplication.StatusResponse;
+import com.rector.RectorApplication.StatusResponse;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -9,6 +9,6 @@ public class StatusController {
 
     @GetMapping("/api/status")
     public StatusResponse getStatus() {
-        return new StatusResponse("UP", "MondoPT Backend is running successfully.");
+        return new StatusResponse("UP", "Rector Backend is running successfully.");
     }
 }

@@ -1,6 +1,6 @@
-package com.mondopt.repository;
+package com.rector.repository;
 
-import com.mondopt.entity.OtpVerifica;
+import com.rector.entity.OtpVerifica;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
