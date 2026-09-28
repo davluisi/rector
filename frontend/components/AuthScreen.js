@@ -9,13 +9,16 @@ import {
   Platform,
   Image,
   StyleSheet,
-  Keyboard
+  Keyboard,
+  Modal,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
+import { File as ModernFile, Paths } from 'expo-file-system';
 import * as IntentLauncher from 'expo-intent-launcher';
 
 import { config } from '../config';
@@ -45,6 +48,9 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
   const [certificazioni, setCertificazioni] = useState([]);
   const [certificazioniKeys, setCertificazioniKeys] = useState('');
 
+  // Preview Modal state for images
+  const [previewModal, setPreviewModal] = useState({ visible: false, uri: null, name: '' });
+
   const initialScreen = mode === 'register' ? 'reg1' : (mode === 'forgot' ? 'forgot' : (mode === 'success' ? 'success' : 'login'));
   const [currentScreen, setCurrentScreen] = useState(initialScreen);
 
@@ -71,13 +77,27 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     try {
       const result = await DocumentPicker.getDocumentAsync({
         type: ['image/*', 'application/pdf'],
-        copyToCacheDirectory: true,
+        copyToCacheDirectory: false,
       });
 
       if (!result.canceled) {
         const asset = result.assets[0];
+        
+        let finalUri = asset.uri;
+        try {
+          const fileExt = asset.name ? asset.name.split('.').pop() : 'tmp';
+          const safeName = `pt_doc_${Date.now()}_${Math.floor(Math.random() * 1000)}.${fileExt}`;
+          const destFile = new ModernFile(Paths.document, safeName);
+          const srcFile = new ModernFile(asset.uri);
+          const bytes = await srcFile.bytes();
+          destFile.write(bytes);
+          finalUri = destFile.uri;
+        } catch (copyErr) {
+          console.log('[AuthScreen] Local save failed, using source uri:', copyErr);
+        }
+
         const fileObj = {
-          uri: asset.uri,
+          uri: finalUri,
           name: asset.name,
           mimeType: asset.mimeType || 'application/octet-stream',
         };
@@ -96,21 +116,44 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
   };
   const handleViewFile = async (fileObj) => {
     if (!fileObj || !fileObj.uri) return;
+
+    const isImage = fileObj.mimeType?.startsWith('image/') || 
+                    /\.(jpe?g|png|webp|gif|bmp)$/i.test(fileObj.name || '') ||
+                    /\.(jpe?g|png|webp|gif|bmp)/i.test(fileObj.uri || '');
+
+    // 1. If it's an image, preview directly inside the app without triggering any native filesystem intent
+    if (isImage) {
+      setPreviewModal({
+        visible: true,
+        uri: fileObj.uri,
+        name: fileObj.name || 'Documento',
+      });
+      return;
+    }
+
+    // 2. If it's a PDF or other document, copy to shareable document directory via modern File API, then share
     try {
-      if (Platform.OS === 'android') {
-        const contentUri = await FileSystem.getContentUriAsync(fileObj.uri);
-        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-          data: contentUri,
-          flags: 1, // Intent.FLAG_GRANT_READ_URI_PERMISSION
-          type: fileObj.mimeType || 'application/octet-stream',
+      const fileExt = fileObj.name ? fileObj.name.split('.').pop() : 'pdf';
+      const cleanName = `doc_${Date.now()}.${fileExt}`;
+      
+      let targetUri = fileObj.uri;
+      try {
+        const sourceFile = new ModernFile(fileObj.uri);
+        const destFile = new ModernFile(Paths.document, cleanName);
+        const bytes = await sourceFile.bytes();
+        destFile.write(bytes);
+        targetUri = destFile.uri;
+      } catch (copyErr) {
+        console.log('[AuthScreen] Modern copy failed, using original uri:', copyErr);
+      }
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(targetUri, {
+          mimeType: fileObj.mimeType || 'application/pdf',
+          dialogTitle: 'Visualizza documento',
         });
       } else {
-        const isAvailable = await Sharing.isAvailableAsync();
-        if (!isAvailable) {
-          alert("La visualizzazione dei file non è disponibile su questo dispositivo.");
-          return;
-        }
-        await Sharing.shareAsync(fileObj.uri);
+        alert("La visualizzazione di questo tipo di file non è supportata su questo dispositivo.");
       }
     } catch (error) {
       console.error(error);
@@ -120,6 +163,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
 
   // Form inputs states (Login)
   const [loginEmail, setLoginEmail] = useState('');
+  const [forgotEmail, setForgotEmail] = useState('');
   const loginPasswordRef = useRef('');
 
   // Password refs to prevent immediate masking on re-render
@@ -180,6 +224,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     passwordRef.current = '';
     confirmPasswordRef.current = '';
     setLoginEmail('');
+    setForgotEmail('');
     loginPasswordRef.current = '';
     setProfileImage(null);
     setDocFronte(null);
@@ -244,6 +289,63 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     }
   };
 
+  const handleForgotPass = async () => {
+    setSubmitted(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (!forgotEmail || !forgotEmail.trim()) {
+      setErrorMessage("Inserisci l'email");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${getApiUrl()}/api/auth/invia-link-reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: forgotEmail.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        const errorMsg = data?.errore || data?.message || data?.error;
+        if (errorMsg) {
+          setErrorMessage(errorMsg);
+        } else {
+          setErrorMessage("Errore durante l'invio del link");
+        }
+        return;
+      }
+
+      setSuccessMessage(data.messaggio || "Ti abbiamo inviato un link per reimpostare la password");
+    } catch (error) {
+      setErrorMessage('Impossibile connettersi al server');
+      console.error(error);
+    }
+  };
+
+  const formatInputDate = (text, prevValue = '') => {
+    if (prevValue && text.length < prevValue.length) {
+      if (prevValue.endsWith('/') && text === prevValue.slice(0, -1)) {
+        return text.slice(0, -1);
+      }
+      return text;
+    }
+
+    const digits = text.replace(/[^0-9]/g, '').slice(0, 8);
+    if (digits.length === 0) return '';
+    if (digits.length < 2) return digits;
+    if (digits.length === 2) return digits + '/';
+    if (digits.length < 4) return digits.slice(0, 2) + '/' + digits.slice(2);
+    if (digits.length === 4) return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/';
+    return digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4, 8);
+  };
+
   const parseDate = (dateStr, allowFuture = false) => {
     const regex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
     if (!regex.test(dateStr)) return null;
@@ -294,7 +396,6 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
 
       // Send OTP
       try {
-        setSuccessMessage('Invio codice OTP in corso...');
         const otpResponse = await fetch(`${getApiUrl()}/api/auth/invia-otp`, {
           method: 'POST',
           headers: {
@@ -309,14 +410,9 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
           return;
         }
 
-        setSuccessMessage('Codice inviato correttamente!');
         setSubmitted(false);
         setOtpCode('');
-
-        setTimeout(() => {
-          setSuccessMessage('');
-          navigateToScreen('regOtp');
-        }, 800);
+        navigateToScreen('regOtp');
       } catch (otpErr) {
         setErrorMessage('Impossibile inviare il codice di verifica');
         console.error(otpErr);
@@ -473,37 +569,67 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
   };
 
   const uploadFile = async (fileInput, endpointType) => {
-    const formData = new FormData();
-    
+    if (!fileInput) return null;
+
+    let uri = '';
+    let name = 'file';
+    let type = 'application/octet-stream';
+
     if (typeof fileInput === 'string') {
-      const filename = fileInput.split('/').pop();
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : `image`;
-      formData.append('file', { uri: fileInput, name: filename, type });
-    } else {
-      formData.append('file', { 
-        uri: fileInput.uri, 
-        name: fileInput.name, 
-        type: fileInput.mimeType || 'application/octet-stream' 
-      });
+      uri = fileInput;
+      name = uri.split('/').pop() || 'image.jpg';
+      const ext = name.split('.').pop()?.toLowerCase();
+      type = ext ? `image/${ext === 'jpg' ? 'jpeg' : ext}` : 'image/jpeg';
+    } else if (typeof fileInput === 'object' && fileInput !== null) {
+      uri = fileInput.uri || fileInput.localUri || '';
+      name = fileInput.name || uri.split('/').pop() || 'file';
+      type = fileInput.mimeType || fileInput.type || 'application/octet-stream';
+    }
+
+    if (!uri || typeof uri !== 'string') {
+      throw new Error('URI del file non valido');
     }
 
     const endpoint = endpointType === 'immagine-profilo'
       ? `${getApiUrl()}/api/files/upload-immagine-profilo`
       : `${getApiUrl()}/api/files/upload-documento-pt`;
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      body: formData,
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
+    let data;
+    if (Platform.OS !== 'web') {
+      const uploadResult = await FileSystem.uploadAsync(endpoint, uri, {
+        httpMethod: 'POST',
+        uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+        fieldName: 'file',
+        mimeType: type,
+        parameters: {}
+      });
 
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data.errore || 'Errore nel caricamento del file');
+      try {
+        data = JSON.parse(uploadResult.body);
+      } catch (e) {
+        data = { errore: uploadResult.body };
+      }
+
+      if (uploadResult.status < 200 || uploadResult.status >= 300) {
+        throw new Error(data.errore || 'Errore nel caricamento del file');
+      }
+    } else {
+      const responseBlob = await fetch(uri);
+      const blob = await responseBlob.blob();
+      const formData = new FormData();
+      formData.append('file', blob, name);
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        body: formData,
+      });
+
+      data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.errore || 'Errore nel caricamento del file');
+      }
     }
+
     return data.url || data.key;
   };
 
@@ -796,20 +922,22 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                 <View className="mb-6 w-full">
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
                   <TextInput
-                    className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                    className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${submitted && !forgotEmail.trim() ? 'border-red-500' : 'border-inputBorder'
+                      }`}
+                    value={forgotEmail}
+                    onChangeText={setForgotEmail}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     scrollEnabled={false}
                   />
                 </View>
 
-                <TouchableOpacity className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" activeOpacity={0.8}>
+                <TouchableOpacity
+                  className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5"
+                  activeOpacity={0.8}
+                  onPress={handleForgotPass}
+                >
                   <Text className="text-zinc-950 text-[15px] font-bold">Invia Link</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity onPress={() => setMode('login')} className="flex-row items-center justify-center mt-6">
-                  <Ionicons name="arrow-back-outline" size={16} color="#00F0FF" />
-                  <Text className="text-accentCyan text-sm font-semibold"> Torna al login</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1106,16 +1234,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                         placeholder="GG/MM/AAAA"
                         placeholderTextColor="#71717A"
                         value={dataNascita}
-                        onChangeText={(text) => {
-                          let formatted = text.replace(/[^0-9]/g, '');
-                          if (formatted.length > 2) {
-                            formatted = formatted.substring(0, 2) + '/' + formatted.substring(2);
-                          }
-                          if (formatted.length > 5) {
-                            formatted = formatted.substring(0, 5) + '/' + formatted.substring(5, 9);
-                          }
-                          setDataNascita(formatted);
-                        }}
+                        onChangeText={(text) => setDataNascita(formatInputDate(text, dataNascita))}
                         keyboardType="number-pad"
                         maxLength={10}
                         scrollEnabled={false}
@@ -1295,7 +1414,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                         >
                           {docFronte ? (
                             <View className="items-center justify-center w-full">
-                              <Ionicons name="document-text" size={24} color="#00F0FF" />
+                              <Ionicons name="document-text" size={24} color="#FFB430" />
                               <Text className="text-white text-xs font-semibold mt-1.5 text-center" numberOfLines={1}>
                                 {docFronte.name}
                               </Text>
@@ -1327,7 +1446,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                         >
                           {docRetro ? (
                             <View className="items-center justify-center w-full">
-                              <Ionicons name="document-text" size={24} color="#00F0FF" />
+                              <Ionicons name="document-text" size={24} color="#FFB430" />
                               <Text className="text-white text-xs font-semibold mt-1.5 text-center" numberOfLines={1}>
                                 {docRetro.name}
                               </Text>
@@ -1356,16 +1475,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                       <TextInput
                         className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
                         value={scadenzaDocumento}
-                        onChangeText={(text) => {
-                          let formatted = text.replace(/[^0-9]/g, '');
-                          if (formatted.length > 2) {
-                            formatted = formatted.substring(0, 2) + '/' + formatted.substring(2);
-                          }
-                          if (formatted.length > 5) {
-                            formatted = formatted.substring(0, 5) + '/' + formatted.substring(5, 9);
-                          }
-                          setScadenzaDocumento(formatted);
-                        }}
+                        onChangeText={(text) => setScadenzaDocumento(formatInputDate(text, scadenzaDocumento))}
                         placeholder="GG/MM/AAAA"
                         placeholderTextColor="#52525B"
                         keyboardType="number-pad"
@@ -1410,7 +1520,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                       {certificazioni.map((file, idx) => (
                         <View key={idx} className="flex-row items-center justify-between bg-inputDark border border-inputBorder rounded-xl p-3">
                           <View className="flex-row items-center flex-1 mr-3">
-                            <Ionicons name="document-text-outline" size={20} color="#00F0FF" className="mr-2" />
+                            <Ionicons name="document-text-outline" size={20} color="#FFB430" className="mr-2" />
                             <TouchableOpacity onPress={() => handleViewFile(file)} className="flex-1">
                               <Text className="text-white text-xs font-semibold underline" numberOfLines={1}>
                                 {file.name}
@@ -1470,7 +1580,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
             contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
           >
             <View className="w-full items-center py-12">
-              <Ionicons name="checkmark-circle" size={80} color="#00F0FF" className="mb-6" />
+              <Ionicons name="checkmark-circle" size={80} color="#FFB430" className="mb-6" />
               <Text className="text-white text-xl font-bold text-center mb-2">
                 Registrazione avvenuta!
               </Text>
@@ -1488,6 +1598,37 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
           </ScrollView>
         </View>
       )}
+
+      {/* 5. IMAGE PREVIEW MODAL */}
+      <Modal
+        visible={previewModal.visible}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPreviewModal({ visible: false, uri: null, name: '' })}
+      >
+        <View className="flex-1 bg-black/90 justify-center items-center p-4">
+          <View className="w-full flex-row justify-between items-center px-2 py-4">
+            <Text className="text-white text-base font-bold flex-1" numberOfLines={1}>
+              {previewModal.name}
+            </Text>
+            <TouchableOpacity 
+              onPress={() => setPreviewModal({ visible: false, uri: null, name: '' })}
+              className="p-2"
+            >
+              <Ionicons name="close-circle" size={32} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-1 w-full justify-center items-center">
+            {previewModal.uri && (
+              <Image 
+                source={{ uri: previewModal.uri }}
+                className="w-full h-full"
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );

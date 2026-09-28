@@ -234,6 +234,28 @@ public class AuthController {
         ));
     }
 
+    @PostMapping("/invia-link-reset")
+    public ResponseEntity<?> inviaLinkReset(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Inserisci l'email"));
+        }
+        String cleanEmail = email.trim().toLowerCase();
+        if (!EMAIL_PATTERN.matcher(cleanEmail).matches()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Formato email non valido"));
+        }
+
+        java.util.Optional<Utente> optionalUtente = utenteRepository.findByEmail(cleanEmail);
+        if (optionalUtente.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("errore", "Non esiste un account con questa email"));
+        }
+
+        return ResponseEntity.ok(Map.of("messaggio", "Ti abbiamo inviato un link per reimpostare la password"));
+    }
+
     @PutMapping("/aggiorna/{id}")
     public ResponseEntity<?> aggiorna(@PathVariable Long id, @RequestBody RegistrazioneRequest request) {
         java.util.Optional<Utente> optionalUtente = utenteRepository.findById(id);

@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 
+ * Rector Brand Identity Palette:
+ * - Primary Dark: #0E0E10 (Nero di sfondo principale)
+ * - Rector Yellow (Logo background / Highlight / Focus / CTA accent): #FFB430
+ * - Rector Red (Logo text / Accent / Badges / Buttons / Alerts): #A0132C
+ */
+

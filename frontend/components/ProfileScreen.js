@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, Dimensions, Keyboard } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 
 import { config } from '../config';
 
@@ -122,24 +123,49 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
       const match = /\.(\w+)$/.exec(filename);
       const type = match ? `image/${match[1]}` : `image`;
 
-      const formData = new FormData();
-      formData.append('file', { uri, name: filename, type });
-
       try {
         setErrorMessage('');
         setSuccessMessage('Caricamento immagine...');
-        const uploadResponse = await fetch(`${getApiUrl()}/api/files/upload-immagine-profilo`, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
 
-        const uploadData = await uploadResponse.json();
-        if (uploadResponse.ok) {
-          const newImageUrl = uploadData.url;
-          setSuccessMessage('Salvataggio immagine...');
+        let uploadData;
+        const uploadEndpoint = `${getApiUrl()}/api/files/upload-immagine-profilo`;
+
+        if (Platform.OS !== 'web') {
+          const uploadResult = await FileSystem.uploadAsync(uploadEndpoint, uri, {
+            httpMethod: 'POST',
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            fieldName: 'file',
+            mimeType: type,
+            parameters: {}
+          });
+
+          try {
+            uploadData = JSON.parse(uploadResult.body);
+          } catch (e) {
+            uploadData = { errore: uploadResult.body };
+          }
+
+          if (uploadResult.status < 200 || uploadResult.status >= 300) {
+            throw new Error(uploadData.errore || "Errore durante il caricamento dell'immagine");
+          }
+        } else {
+          const responseBlob = await fetch(uri);
+          const blob = await responseBlob.blob();
+          const formData = new FormData();
+          formData.append('file', blob, filename);
+
+          const uploadResponse = await fetch(uploadEndpoint, {
+            method: 'POST',
+            body: formData,
+          });
+          uploadData = await uploadResponse.json();
+          if (!uploadResponse.ok) {
+            throw new Error(uploadData.errore || "Errore durante il caricamento dell'immagine");
+          }
+        }
+
+        const newImageUrl = uploadData.url;
+        setSuccessMessage('Salvataggio immagine...');
           
           const saveResponse = await fetch(`${getApiUrl()}/api/auth/aggiorna/${user.id}`, {
             method: 'PUT',
@@ -171,9 +197,6 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             setSuccessMessage('');
             setErrorMessage('');
           }, 2000);
-        } else {
-          setErrorMessage(uploadData.errore || 'Errore caricamento immagine');
-        }
       } catch (error) {
         console.error(error);
         setErrorMessage('Impossibile caricare o salvare l\'immagine sul server');
@@ -657,8 +680,8 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
                 } 
                 size={22} 
                 color={
-                  user.genere === 'FEMMINA' ? '#FF2E93' :
-                  user.genere === 'MASCHIO' ? '#00F0FF' : '#FFFFFF'
+                  user.genere === 'FEMMINA' ? '#A0132C' :
+                  user.genere === 'MASCHIO' ? '#FFB430' : '#FFFFFF'
                 } 
                 className="mb-1" 
               />
@@ -707,7 +730,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             activeOpacity={0.8}
             onPress={onLogout}
           >
-            <Ionicons name="log-out" size={18} color="#FF2E93" />
+            <Ionicons name="log-out" size={18} color="#A0132C" />
             <Text className="text-accentPink text-[15px] font-bold">Logout</Text>
           </TouchableOpacity>
         </ScrollView>

@@ -14,7 +14,7 @@ export default function SearchBar({ value, onChangeText }) {
         onChangeText={onChangeText}
       />
       <TouchableOpacity className="p-1.5">
-        <Ionicons name="options-outline" size={20} color="#FF2E93" />
+        <Ionicons name="options-outline" size={20} color="#FFB430" />
       </TouchableOpacity>
     </View>
   );
