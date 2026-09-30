@@ -31,7 +31,6 @@ export default function App() {
   const [search, setSearch] = useState('');
   const [authMode, setAuthMode] = useState('login');
   const [currentUser, setCurrentUser] = useState(null);
-  const [showAdminScreen, setShowAdminScreen] = useState(false);
   
   const [activeTab, setActiveTab] = useState('world');
 
@@ -41,7 +40,9 @@ export default function App() {
 
   const handleLogout = () => {
     setCurrentUser(null);
-    setShowAdminScreen(false);
+    if (activeTab === 'admin') {
+      setActiveTab('world');
+    }
   };
 
   return (
@@ -98,39 +99,31 @@ export default function App() {
           </View>
         )}
 
-        {/* Schermata Allenamenti (Barbell) */}
-        {activeTab === 'barbell' && (
+        {/* Schermata Schede Allenamento */}
+        {activeTab === 'workout' && (
           <View style={{ flex: 1 }} className="bg-premiumDark">
             {/* Header locale per Allenamenti */}
             <View className="flex-row items-center justify-center py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
-              <Text className="text-lg font-bold text-white tracking-tight">Allenamenti</Text>
+              <Text className="text-lg font-bold text-white tracking-tight">Scheda di Allenamento</Text>
             </View>
 
             <View className="flex-1 justify-center items-center px-6">
-              <Ionicons name="barbell-outline" size={64} color="#303038" className="mb-4" />
-              <Text className="text-zinc-500 font-bold text-lg text-center">Allenamenti</Text>
+              <Ionicons name="reader-outline" size={64} color="#303038" className="mb-4" />
+              <Text className="text-zinc-500 font-bold text-lg text-center">Scheda di Allenamento</Text>
               <Text className="text-zinc-600 text-sm text-center mt-1">Nessuna scheda caricata per il momento.</Text>
             </View>
           </View>
         )}
 
-        {/* Auth / Profile / Admin Screen */}
+        {/* Auth / Profile Screen */}
         {activeTab === 'profile' && (
           <View style={{ flex: 1 }}>
             {currentUser ? (
-              showAdminScreen ? (
-                <AdminScreen
-                  user={currentUser}
-                  onBack={() => setShowAdminScreen(false)}
-                />
-              ) : (
-                <ProfileScreen
-                  user={currentUser}
-                  onLogout={handleLogout}
-                  onUpdateUser={setCurrentUser}
-                  onOpenAdmin={() => setShowAdminScreen(true)}
-                />
-              )
+              <ProfileScreen
+                user={currentUser}
+                onLogout={handleLogout}
+                onUpdateUser={setCurrentUser}
+              />
             ) : (
               <AuthScreen
                 visible={activeTab === 'profile'}
@@ -144,20 +137,29 @@ export default function App() {
             )}
           </View>
         )}
+
+        {/* Admin Screen Tab */}
+        {activeTab === 'admin' && currentUser && (currentUser.admin || currentUser.isAdmin) && (
+          <View style={{ flex: 1 }}>
+            <AdminScreen
+              user={currentUser}
+            />
+          </View>
+        )}
       </View>
 
       {/* Bottom Navigation Bar */}
       <View className="flex-row items-center justify-around py-4 bg-[#121216] border-t border-[#1F1F24] px-6 z-40">
-        {/* Barbell/Trainers tab */}
+        {/* Workout/Scheda tab */}
         <TouchableOpacity 
           className="items-center justify-center p-2" 
           activeOpacity={0.7}
           onPress={() => {
             Keyboard.dismiss();
-            setActiveTab('barbell');
+            setActiveTab('workout');
           }}
         >
-          <Ionicons name="barbell-outline" size={32} color={activeTab === 'barbell' ? '#FFFFFF' : '#71717A'} />
+          <Ionicons name={activeTab === 'workout' ? "reader" : "reader-outline"} size={30} color={activeTab === 'workout' ? '#FFFFFF' : '#71717A'} />
         </TouchableOpacity>
 
         {/* Network/World tab */}
@@ -171,6 +173,24 @@ export default function App() {
         >
           <Ionicons name="earth-outline" size={32} color={activeTab === 'world' ? '#FFFFFF' : '#71717A'} />
         </TouchableOpacity>
+
+        {/* Admin Tab (visibile solo se admin) */}
+        {currentUser && (currentUser.admin || currentUser.isAdmin) && (
+          <TouchableOpacity 
+            className="items-center justify-center p-2" 
+            activeOpacity={0.7}
+            onPress={() => {
+              Keyboard.dismiss();
+              setActiveTab('admin');
+            }}
+          >
+            <Ionicons 
+              name={activeTab === 'admin' ? "shield-checkmark" : "shield-checkmark-outline"} 
+              size={30} 
+              color={activeTab === 'admin' ? '#FFB430' : '#71717A'} 
+            />
+          </TouchableOpacity>
+        )}
 
         {/* User profile tab */}
         <View>

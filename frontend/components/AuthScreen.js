@@ -25,6 +25,36 @@ import { config } from '../config';
 
 const getApiUrl = () => config.apiUrl;
 
+// Memoized PasswordInput component to prevent character masking issues on re-render
+const PasswordInput = React.memo(({ label, error, onChangeText, textKey }) => {
+  const [hasText, setHasText] = useState(false);
+
+  useEffect(() => {
+    setHasText(false);
+  }, [textKey]);
+
+  return (
+    <View className="mb-5 w-full">
+      <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">{label}</Text>
+      <TextInput
+        key={textKey}
+        className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan ${
+          error && !hasText ? 'border-red-500' : 'border-inputBorder'
+        }`}
+        onChangeText={(text) => {
+          setHasText(text.length > 0);
+          onChangeText(text);
+        }}
+        secureTextEntry
+        autoCapitalize="none"
+        scrollEnabled={false}
+        autoCorrect={false}
+        textContentType="oneTimeCode"
+      />
+    </View>
+  );
+});
+
 export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuccess }) {
 
   // Form inputs states (Registration)
@@ -168,9 +198,12 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     }
   };
 
-  // Form inputs states (Login)
+  // Form inputs states (Login & Forgot)
   const [loginEmail, setLoginEmail] = useState('');
   const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotOtpCode, setForgotOtpCode] = useState('');
+  const resetNewPasswordRef = useRef('');
+  const resetConfirmPasswordRef = useRef('');
   const loginPasswordRef = useRef('');
 
   // Password refs to prevent immediate masking on re-render
@@ -232,6 +265,9 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     confirmPasswordRef.current = '';
     setLoginEmail('');
     setForgotEmail('');
+    setForgotOtpCode('');
+    resetNewPasswordRef.current = '';
+    resetConfirmPasswordRef.current = '';
     loginPasswordRef.current = '';
     setProfileImage(null);
     setDocFronte(null);
@@ -296,7 +332,8 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     }
   };
 
-  const handleForgotPass = async () => {
+  // Step 1: Richiesta OTP reset password
+  const handleForgotSendOtp = async () => {
     setSubmitted(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -307,7 +344,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
     }
 
     try {
-      const response = await fetch(`${getApiUrl()}/api/auth/invia-link-reset`, {
+      const response = await fetch(`${getApiUrl()}/api/auth/invia-otp-reset`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -320,16 +357,112 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
       const data = await response.json();
 
       if (!response.ok) {
-        const errorMsg = data?.errore || data?.message || data?.error;
-        if (errorMsg) {
-          setErrorMessage(errorMsg);
-        } else {
-          setErrorMessage("Errore durante l'invio del link");
-        }
+        setErrorMessage(data?.errore || "Errore durante l'invio del codice");
         return;
       }
 
-      setSuccessMessage(data.messaggio || "Ti abbiamo inviato un link per reimpostare la password");
+      setSubmitted(false);
+      setSuccessMessage(data.messaggio || "Codice inviato via email");
+      setTimeout(() => {
+        navigateToScreen('forgotOtp');
+      }, 600);
+    } catch (error) {
+      setErrorMessage('Impossibile connettersi al server');
+      console.error(error);
+    }
+  };
+
+  // Step 2: Verifica codice OTP
+  const handleForgotVerifyOtp = async () => {
+    setSubmitted(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    if (!forgotOtpCode || forgotOtpCode.trim().length !== 4) {
+      setErrorMessage("Inserisci il codice di verifica a 4 cifre");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${getApiUrl()}/api/auth/verifica-otp`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: forgotEmail.trim().toLowerCase(),
+          codice: forgotOtpCode.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(data?.errore || "Codice non valido o scaduto");
+        return;
+      }
+
+      setSubmitted(false);
+      setSuccessMessage("Codice verificato!");
+      setTimeout(() => {
+        navigateToScreen('forgotNewPass');
+      }, 500);
+    } catch (error) {
+      setErrorMessage('Impossibile connettersi al server');
+      console.error(error);
+    }
+  };
+
+  // Step 3: Impostazione nuova password
+  const handleResetPasswordSubmit = async () => {
+    setSubmitted(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    const newPwd = resetNewPasswordRef.current;
+    const confirmPwd = resetConfirmPasswordRef.current;
+
+    if (!newPwd || !confirmPwd) {
+      setErrorMessage("Tutti i campi password sono obbligatori");
+      return;
+    }
+
+    if (newPwd !== confirmPwd) {
+      setErrorMessage("Le password non coincidono");
+      return;
+    }
+
+    if (newPwd.length < 6) {
+      setErrorMessage("La password deve contenere almeno 6 caratteri");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${getApiUrl()}/api/auth/reset-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: forgotEmail.trim().toLowerCase(),
+          codice: forgotOtpCode.trim(),
+          nuovaPassword: newPwd,
+          confermaNuovaPassword: confirmPwd,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setErrorMessage(data?.errore || "Errore durante il reset della password");
+        return;
+      }
+
+      setSuccessMessage(data.messaggio || "Password reimpostata con successo!");
+      setTimeout(() => {
+        resetForm();
+        setMode('login');
+      }, 1500);
     } catch (error) {
       setErrorMessage('Impossibile connettersi al server');
       console.error(error);
@@ -893,7 +1026,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
         </View>
       )}
 
-      {/* 2. FORGOT SCREEN */}
+      {/* 2. FORGOT SCREEN - STEP 1 (EMAIL) */}
       {currentScreen === 'forgot' && (
         <View style={styles.absoluteScreen}>
           {/* Header locale per Forgot Password */}
@@ -924,7 +1057,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
 
               <View className="w-full">
                 <Text className="text-zinc-400 text-sm leading-6 mb-6">
-                  Inserisci l'indirizzo email associato al tuo account.
+                  Inserisci l'indirizzo email del tuo account. Ti invieremo un codice di verifica per reimpostare la tua password.
                 </Text>
                 <View className="mb-6 w-full">
                   <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
@@ -942,9 +1075,149 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
                 <TouchableOpacity
                   className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5"
                   activeOpacity={0.8}
-                  onPress={handleForgotPass}
+                  onPress={handleForgotSendOtp}
                 >
-                  <Text className="text-zinc-950 text-[15px] font-bold">Invia Link</Text>
+                  <Text className="text-zinc-950 text-[15px] font-bold">Invia Codice OTP</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      )}
+
+      {/* 2.1 FORGOT SCREEN - STEP 2 (VERIFICA CODICE OTP) */}
+      {currentScreen === 'forgotOtp' && (
+        <View style={styles.absoluteScreen}>
+          {/* Header locale per Forgot OTP */}
+          <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+            <View className="w-10 items-start">
+              <TouchableOpacity onPress={() => navigateToScreen('forgot')} className="p-1">
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <View className="flex-1 items-center">
+              <Text className="text-lg font-bold text-white tracking-tight">Verifica Codice</Text>
+            </View>
+            <View className="w-10" />
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            className="flex-1"
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="mt-2" />
+
+              {renderMessages('forgotOtp')}
+
+              <View className="w-full">
+                <Text className="text-zinc-400 text-sm mb-6 text-center leading-relaxed">
+                  Abbiamo inviato un codice di 4 cifre a:{"\n"}
+                  <Text className="text-white font-bold">{forgotEmail.trim().toLowerCase()}</Text>
+                </Text>
+
+                {/* OTP Input */}
+                <View className="mb-6 w-full">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Codice di verifica</Text>
+                  <TextInput
+                    className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-lg font-bold text-center tracking-[10px] focus:border-accentCyan ${
+                      submitted && (!forgotOtpCode || forgotOtpCode.length !== 4) ? 'border-red-500' : 'border-inputBorder'
+                    }`}
+                    value={forgotOtpCode}
+                    onChangeText={(val) => setForgotOtpCode(val.replace(/[^0-9]/g, '').slice(0, 4))}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                    placeholder="0000"
+                    placeholderTextColor="#52525B"
+                    scrollEnabled={false}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5"
+                  activeOpacity={0.8}
+                  onPress={handleForgotVerifyOtp}
+                >
+                  <Text className="text-zinc-950 text-[15px] font-bold">Verifica Codice</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="border border-borderDark h-12 rounded-xl justify-center items-center mt-4"
+                  activeOpacity={0.8}
+                  onPress={handleForgotSendOtp}
+                >
+                  <Text className="text-zinc-400 text-sm font-bold">Invia di nuovo il codice</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
+      )}
+
+      {/* 2.2 FORGOT SCREEN - STEP 3 (IMPOSTAZIONE NUOVA PASSWORD) */}
+      {currentScreen === 'forgotNewPass' && (
+        <View style={styles.absoluteScreen}>
+          {/* Header locale per Nuova Password */}
+          <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+            <View className="w-10 items-start">
+              <TouchableOpacity onPress={() => navigateToScreen('forgotOtp')} className="p-1">
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <View className="flex-1 items-center">
+              <Text className="text-lg font-bold text-white tracking-tight">Nuova Password</Text>
+            </View>
+            <View className="w-10" />
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            className="flex-1"
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="mt-2" />
+
+              {renderMessages('forgotNewPass')}
+
+              <View className="w-full">
+                <Text className="text-zinc-400 text-sm leading-6 mb-6">
+                  Crea una nuova password per accedere al tuo account.
+                </Text>
+
+                {/* Nuova Password */}
+                <PasswordInput
+                  label="Nuova Password (min. 6 caratteri)"
+                  error={submitted && !resetNewPasswordRef.current}
+                  textKey="resetNewPassword"
+                  onChangeText={(text) => {
+                    resetNewPasswordRef.current = text;
+                  }}
+                />
+
+                {/* Conferma Nuova Password */}
+                <PasswordInput
+                  label="Conferma Nuova Password"
+                  error={submitted && !resetConfirmPasswordRef.current}
+                  textKey="resetConfirmPassword"
+                  onChangeText={(text) => {
+                    resetConfirmPasswordRef.current = text;
+                  }}
+                />
+
+                <TouchableOpacity
+                  className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5"
+                  activeOpacity={0.8}
+                  onPress={handleResetPasswordSubmit}
+                >
+                  <Text className="text-zinc-950 text-[15px] font-bold">Salva Nuova Password</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>

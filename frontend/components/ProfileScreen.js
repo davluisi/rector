@@ -60,7 +60,7 @@ const PasswordInput = React.memo(({ label, error, onChangeText, textKey }) => {
   );
 });
 
-export default function ProfileScreen({ user, onLogout, onUpdateUser, onOpenAdmin }) {
+export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   const [currentScreen, setCurrentScreen] = useState('view'); // 'view' | 'edit' | 'password'
   const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
   const [otpCode, setOtpCode] = useState('');
@@ -713,18 +713,6 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser, onOpenAdmi
               </View>
             )}
           </View>
-
-          {/* Admin Panel Button (Exclusive for Admins) */}
-          {user.isAdmin && (
-            <TouchableOpacity 
-              className="bg-[#FFB430]/10 border border-[#FFB430]/30 h-12 rounded-xl justify-center items-center flex-row gap-2 mb-4"
-              activeOpacity={0.8}
-              onPress={onOpenAdmin}
-            >
-              <Ionicons name="shield-checkmark" size={18} color="#FFB430" />
-              <Text className="text-[#FFB430] text-[15px] font-bold">Pannello Amministrazione</Text>
-            </TouchableOpacity>
-          )}
 
           {/* Account Settings / Actions */}
           <TouchableOpacity 

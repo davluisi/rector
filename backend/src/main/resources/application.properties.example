@@ -17,3 +17,20 @@ aws.secret-access-key=${AWS_SECRET_ACCESS_KEY:}
 aws.region=${AWS_REGION:eu-west-1}
 aws.s3.bucket=${AWS_S3_BUCKET:}
 aws.cloudfront.url=${AWS_CLOUDFRONT_URL:}
+
+# Multipart Upload Configurations (Max size)
+spring.servlet.multipart.max-file-size=50MB
+spring.servlet.multipart.max-request-size=50MB
+
+# Configurazione Email (Brevo SMTP / Altro SMTP)
+spring.mail.host=${SPRING_MAIL_HOST:smtp-relay.brevo.com}
+spring.mail.port=${SPRING_MAIL_PORT:587}
+spring.mail.username=${SPRING_MAIL_USERNAME:}
+spring.mail.password=${SPRING_MAIL_PASSWORD:}
+spring.mail.properties.mail.smtp.auth=true
+spring.mail.properties.mail.smtp.starttls.enable=true
+spring.mail.properties.mail.smtp.starttls.required=true
+spring.mail.default-encoding=UTF-8
+
+# Mittente registrato
+app.mail.from=${APP_MAIL_FROM:noreply@rector.fit}

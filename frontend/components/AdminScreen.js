@@ -140,13 +140,17 @@ export default function AdminScreen({ user, onBack }) {
     <View className="flex-1 bg-premiumDark">
       {/* Header */}
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark">
-        <TouchableOpacity
-          onPress={onBack}
-          className="w-10 h-10 rounded-full bg-[#18181C] items-center justify-center border border-[#282830]"
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
+        {onBack ? (
+          <TouchableOpacity
+            onPress={onBack}
+            className="w-10 h-10 rounded-full bg-[#18181C] items-center justify-center border border-[#282830]"
+            activeOpacity={0.7}
+          >
+            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : (
+          <View className="w-10 h-10" />
+        )}
         <View className="flex-row items-center gap-2">
           <Ionicons name="shield-checkmark" size={20} color="#FFB430" />
           <Text className="text-lg font-bold text-white tracking-tight">Pannello Admin</Text>

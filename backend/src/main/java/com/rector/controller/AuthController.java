@@ -380,6 +380,104 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("messaggio", "Password aggiornata con successo"));
     }
 
+    @PostMapping("/invia-otp-reset")
+    public ResponseEntity<?> inviaOtpReset(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Inserisci l'email"));
+        }
+        String cleanEmail = email.trim().toLowerCase();
+        if (!EMAIL_PATTERN.matcher(cleanEmail).matches()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Formato email non valido"));
+        }
+
+        java.util.Optional<Utente> utenteOpt = utenteRepository.findByEmail(cleanEmail);
+        if (utenteOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("errore", "Nessun account associato a questa email"));
+        }
+
+        // Generate 4-digit OTP code
+        Random random = new Random();
+        String codice = String.format("%04d", random.nextInt(10000));
+
+        OtpVerifica otpVerifica = otpVerificaRepository.findById(cleanEmail)
+            .orElse(new OtpVerifica());
+        otpVerifica.setEmail(cleanEmail);
+        otpVerifica.setCodice(codice);
+        otpVerifica.setScadenza(LocalDateTime.now().plusMinutes(5));
+        otpVerifica.setVerificato(false);
+        otpVerifica.setDataVerifica(null);
+        otpVerificaRepository.save(otpVerifica);
+
+        // Send Email via SMTP
+        emailService.sendPasswordResetOtpEmail(cleanEmail, codice);
+
+        return ResponseEntity.ok(Map.of("messaggio", "Codice di ripristino inviato alla tua email"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPasswordConOtp(@RequestBody Map<String, String> request) {
+        String email = request.get("email");
+        String codice = request.get("codice");
+        String nuovaPassword = request.get("nuovaPassword");
+        String confermaNuovaPassword = request.get("confermaNuovaPassword");
+
+        if (email == null || email.trim().isEmpty() ||
+            codice == null || codice.trim().isEmpty() ||
+            nuovaPassword == null || nuovaPassword.isEmpty() ||
+            confermaNuovaPassword == null || confermaNuovaPassword.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Tutti i campi sono obbligatori"));
+        }
+
+        if (!nuovaPassword.equals(confermaNuovaPassword)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Le password non coincidono"));
+        }
+
+        if (nuovaPassword.length() < 6) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "La password deve contenere almeno 6 caratteri"));
+        }
+
+        String cleanEmail = email.trim().toLowerCase();
+        java.util.Optional<OtpVerifica> otpOpt = otpVerificaRepository.findById(cleanEmail);
+        if (otpOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Nessun codice richiesto per questa email"));
+        }
+
+        OtpVerifica otpVerifica = otpOpt.get();
+        if (otpVerifica.getScadenza().isBefore(LocalDateTime.now())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Il codice è scaduto. Richiedine uno nuovo."));
+        }
+
+        if (!otpVerifica.getCodice().equals(codice.trim())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Codice non corretto"));
+        }
+
+        java.util.Optional<Utente> utenteOpt = utenteRepository.findByEmail(cleanEmail);
+        if (utenteOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("errore", "Utente non trovato"));
+        }
+
+        Utente utente = utenteOpt.get();
+        String hashedPassword = org.mindrot.jbcrypt.BCrypt.hashpw(nuovaPassword, org.mindrot.jbcrypt.BCrypt.gensalt());
+        utente.setPassword(hashedPassword);
+        utenteRepository.save(utente);
+
+        // Delete/invalidate used OTP
+        otpVerificaRepository.delete(otpVerifica);
+
+        return ResponseEntity.ok(Map.of("messaggio", "Password reimpostata con successo. Ora puoi accedere."));
+    }
+
     // Helper method to verify passwords with support for both BCrypt hashes and legacy plain text
     private boolean checkPassword(String plainPassword, String storedPassword) {
         if (storedPassword == null) {
