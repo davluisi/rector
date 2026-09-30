@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { config } from '../config';
+import ArchivioScreen from './ArchivioScreen';
 
 const getApiUrl = () => config.apiUrl;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -220,6 +221,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   const viewTranslateX = useRef(new Animated.Value(0)).current;
   const editTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const passwordTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const archivioTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
 
   // Run transitions when currentScreen changes
   useEffect(() => {
@@ -227,19 +229,28 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
     let targetView = 0;
     let targetEdit = SCREEN_WIDTH;
     let targetPassword = SCREEN_WIDTH;
+    let targetArchivio = SCREEN_WIDTH;
 
     if (currentScreen === 'view') {
       targetView = 0;
       targetEdit = SCREEN_WIDTH;
       targetPassword = SCREEN_WIDTH;
+      targetArchivio = SCREEN_WIDTH;
     } else if (currentScreen === 'edit') {
       targetView = -SCREEN_WIDTH;
       targetEdit = 0;
       targetPassword = SCREEN_WIDTH;
+      targetArchivio = SCREEN_WIDTH;
     } else if (currentScreen === 'password') {
       targetView = -SCREEN_WIDTH;
       targetEdit = -SCREEN_WIDTH;
       targetPassword = 0;
+      targetArchivio = SCREEN_WIDTH;
+    } else if (currentScreen === 'archivio') {
+      targetView = -SCREEN_WIDTH;
+      targetEdit = SCREEN_WIDTH;
+      targetPassword = SCREEN_WIDTH;
+      targetArchivio = 0;
     }
 
     Animated.parallel([
@@ -255,6 +266,11 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
       }),
       Animated.timing(passwordTranslateX, {
         toValue: targetPassword,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(archivioTranslateX, {
+        toValue: targetArchivio,
         duration: 250,
         useNativeDriver: true,
       }),
@@ -714,9 +730,21 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             )}
           </View>
 
+          {/* Personal Trainer Archive Button */}
+          {(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') && (
+            <TouchableOpacity 
+              className="bg-[#FEB32F]/15 border border-[#FEB32F]/40 h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3 shadow-sm"
+              activeOpacity={0.7}
+              onPress={() => setCurrentScreen('archivio')}
+            >
+              <Ionicons name="folder-open" size={18} color="#FEB32F" />
+              <Text className="text-[#FEB32F] text-[15px] font-bold">Archivio Esercizi</Text>
+            </TouchableOpacity>
+          )}
+
           {/* Account Settings / Actions */}
           <TouchableOpacity 
-            className="bg-inputDark border border-inputBorder h-12 rounded-xl justify-center items-center flex-row gap-2 mb-4"
+            className="bg-inputDark border border-inputBorder h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3"
             activeOpacity={0.7}
             onPress={() => setCurrentScreen('edit')}
           >
@@ -1207,6 +1235,23 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
+      </Animated.View>
+
+      {/* 4. ARCHIVIO SCREEN (Personal Trainer) */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          transform: [{ translateX: archivioTranslateX }],
+        }}
+      >
+        <ArchivioScreen
+          user={user}
+          onBack={() => setCurrentScreen('view')}
+        />
       </Animated.View>
 
     </View>

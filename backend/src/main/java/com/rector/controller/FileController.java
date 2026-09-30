@@ -105,4 +105,25 @@ public class FileController {
                 .body(Map.of("errore", "Errore durante il caricamento del documento: " + e.getMessage()));
         }
     }
+
+    @PostMapping("/upload-video-esercizio")
+    public ResponseEntity<?> uploadVideoEsercizio(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Il file video è vuoto"));
+        }
+
+        try {
+            String url = fileStorageService.uploadVideoEsercizio(
+                file.getOriginalFilename(),
+                file.getInputStream(),
+                file.getContentType()
+            );
+            return ResponseEntity.ok(Map.of("url", url));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("errore", "Errore durante il caricamento del video: " + e.getMessage()));
+        }
+    }
 }

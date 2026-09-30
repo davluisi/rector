@@ -643,6 +643,11 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
       return;
     }
 
+    if (pwd.length < 6) {
+      setErrorMessage('La password deve contenere almeno 6 caratteri');
+      return;
+    }
+
     if (pwd !== confirmPwd) {
       setErrorMessage('Le password non coincidono');
       return;

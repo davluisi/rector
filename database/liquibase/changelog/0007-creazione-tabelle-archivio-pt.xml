@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- 1. Tabella gruppo_esercizio per organizzare i video in gruppi/cartelle -->
+    <changeSet id="0007-creazione-tabella-gruppo-esercizio" author="rector">
+        <createTable tableName="gruppo_esercizio">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="id_personal_trainer" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_gruppo_personal_trainer" referencedTableName="personal_trainer" referencedColumnNames="id_utente" deleteCascade="true"/>
+            </column>
+            <column name="nome" type="VARCHAR(150)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="data_creazione" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <!-- 2. Tabella video_esercizio per i video caricati dal personal trainer -->
+    <changeSet id="0007-creazione-tabella-video-esercizio" author="rector">
+        <createTable tableName="video_esercizio">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="id_personal_trainer" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_video_personal_trainer" referencedTableName="personal_trainer" referencedColumnNames="id_utente" deleteCascade="true"/>
+            </column>
+            <column name="id_gruppo" type="BIGINT">
+                <constraints nullable="true" foreignKeyName="fk_video_gruppo_esercizio" referencedTableName="gruppo_esercizio" referencedColumnNames="id"/>
+            </column>
+            <column name="nome" type="VARCHAR(200)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="url_video" type="VARCHAR(1000)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="data_caricamento" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+</databaseChangeLog>

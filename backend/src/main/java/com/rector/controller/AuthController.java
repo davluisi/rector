@@ -137,6 +137,11 @@ public class AuthController {
                 .body(Map.of("errore", "Campi obbligatori mancanti"));
         }
 
+        if (request.getPassword().trim().length() < 6) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "La password deve contenere almeno 6 caratteri"));
+        }
+
         // Email format check
         if (!EMAIL_PATTERN.matcher(request.getEmail()).matches()) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
