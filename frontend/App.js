@@ -21,58 +21,28 @@ import FilterSelector from './components/FilterSelector';
 import TrainerCard from './components/TrainerCard';
 import AuthScreen from './components/AuthScreen';
 import ProfileScreen from './components/ProfileScreen';
+import AdminScreen from './components/AdminScreen';
 import { detectActiveApiUrl } from './config';
 
-// Mock data for Personal Trainers
-const TRAINERS = [
-  {
-    id: '1',
-    name: 'Marco Rossi',
-    specialties: ['Bodybuilding', 'Powerlifting'],
-    rating: 4.9,
-    reviews: 124,
-    price: '40',
-    avatar: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?auto=format&fit=crop&q=80&w=120',
-  },
-  {
-    id: '2',
-    name: 'Elena Bianchi',
-    specialties: ['Pilates', 'Dimagrimento', 'Yoga'],
-    rating: 5.0,
-    reviews: 98,
-    price: '45',
-    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=120',
-  },
-  {
-    id: '3',
-    name: 'Luca Moretti',
-    specialties: ['Crossfit', 'Funzionale', 'Kettlebell'],
-    rating: 4.8,
-    reviews: 86,
-    price: '35',
-    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=120',
-  },
-];
+// Personal Trainers list (currently empty, ready for backend integration)
+const TRAINERS = [];
 
 export default function App() {
   const [search, setSearch] = useState('');
-  const [selectedFilter, setSelectedFilter] = useState('Tutti');
   const [authMode, setAuthMode] = useState('login');
   const [currentUser, setCurrentUser] = useState(null);
+  const [showAdminScreen, setShowAdminScreen] = useState(false);
   
   const [activeTab, setActiveTab] = useState('world');
 
   useEffect(() => {
     detectActiveApiUrl();
   }, []);
-  
-  const filters = ['Tutti', 'Bodybuilding', 'Dimagrimento', 'Funzionale', 'Pilates'];
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setShowAdminScreen(false);
   };
-
-
 
   return (
     <SafeAreaProvider>
@@ -81,8 +51,6 @@ export default function App() {
         onStartShouldSetResponder={() => { Keyboard.dismiss(); return false; }}
       >
         <StatusBar style="light" />
-
-
 
       {/* Area Contenuto Principale */}
       <View style={{ flex: 1 }}>
@@ -98,32 +66,34 @@ export default function App() {
               />
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}>
               {/* Hero Banner / Intro */}
               <HeroSection />
 
               {/* Search Bar */}
               <SearchBar value={search} onChangeText={setSearch} />
 
-              {/* Quick Filters */}
-              <FilterSelector
-                filters={filters}
-                selectedFilter={selectedFilter}
-                onSelectFilter={setSelectedFilter}
-              />
+              {/* Trainers Section */}
+              {TRAINERS.length > 0 ? (
+                <View className="mt-6">
+                  <View className="flex-row justify-between items-center mx-5 mb-4">
+                    <Text className="text-lg font-bold text-white">I migliori Professionisti</Text>
+                    <TouchableOpacity>
+                      <Text className="text-accentCyan text-sm font-semibold">Vedi tutti</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Trainers Section Header */}
-              <View className="flex-row justify-between items-center mx-5 mt-7 mb-4">
-                <Text className="text-lg font-bold text-white">I migliori Professionisti</Text>
-                <TouchableOpacity>
-                  <Text className="text-accentCyan text-sm font-semibold">Vedi tutti</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Trainer Cards */}
-              {TRAINERS.map((trainer) => (
-                <TrainerCard key={trainer.id} trainer={trainer} />
-              ))}
+                  {TRAINERS.map((trainer) => (
+                    <TrainerCard key={trainer.id} trainer={trainer} />
+                  ))}
+                </View>
+              ) : (
+                <View className="flex-1 justify-center items-center px-6 mt-12 py-8">
+                  <Ionicons name="people-outline" size={56} color="#303038" className="mb-3" />
+                  <Text className="text-zinc-400 font-bold text-base text-center">Nessun personal trainer disponibile</Text>
+                  <Text className="text-zinc-600 text-xs text-center mt-1">Presto troverai qui i migliori professionisti certificati.</Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         )}
@@ -144,15 +114,23 @@ export default function App() {
           </View>
         )}
 
-        {/* Auth Screen (compresa tra topbar e bottombar) */}
+        {/* Auth / Profile / Admin Screen */}
         {activeTab === 'profile' && (
           <View style={{ flex: 1 }}>
             {currentUser ? (
-              <ProfileScreen
-                user={currentUser}
-                onLogout={handleLogout}
-                onUpdateUser={setCurrentUser}
-              />
+              showAdminScreen ? (
+                <AdminScreen
+                  user={currentUser}
+                  onBack={() => setShowAdminScreen(false)}
+                />
+              ) : (
+                <ProfileScreen
+                  user={currentUser}
+                  onLogout={handleLogout}
+                  onUpdateUser={setCurrentUser}
+                  onOpenAdmin={() => setShowAdminScreen(true)}
+                />
+              )
             ) : (
               <AuthScreen
                 visible={activeTab === 'profile'}

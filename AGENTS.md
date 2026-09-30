@@ -1,20 +1,19 @@
-# Regolamento di Sviluppo (MondoPT)
+# Regolamento di Sviluppo (Rector)
 
-Questo file definisce le linee guida e le regole da seguire per lo sviluppo del progetto MondoPT.
+Questo file definisce le linee guida e le regole vincolanti da seguire per lo sviluppo del progetto Rector.
 
 ---
 
 ## 1. Gestione del Database (Liquibase & JPA)
 
-Per garantire l'integrità e la coerenza del database, segui queste regole:
+Per garantire l'integrità e la coerenza del database, segui queste regole tassative:
 
 *   **MIGRAZIONI CON LIQUIBASE**: Qualsiasi creazione o modifica di tabelle, colonne, indici e vincoli deve essere definita tramite script di migrazione Liquibase inseriti in `database/liquibase/changelog/`.
 *   **NOMENCLATURA DEI FILE (4 CIFRE)**: Tutti i file di migrazione di Liquibase devono iniziare con un numero intero progressivo a 4 cifre (es. `0001-creazione-tabella-utente.xml`).
-*   **REGISTRAZIONE NEL MASTER**: Ciascun changeset deve essere registrato/incluso nel file master [db.changelog-master.xml](file:///c:/Progetti/MondoPT/database/liquibase/db.changelog-master.xml).
+*   **REGISTRAZIONE NEL MASTER**: Ciascun changeset deve essere registrato/incluso nel file master `database/liquibase/db.changelog-master.xml`.
 *   **APPLICAZIONE TRAMITE BACKEND**: La migrazione viene eseguita automaticamente all'avvio del backend Spring Boot tramite la configurazione di Liquibase.
 *   **NOMENCLATURA AL SINGOLARE**: Usiamo sempre nomi al singolare sia per le classi Java Entity sia per le tabelle corrispondenti nel database (es. entità `Utente` e `@Table(name = "utente")`).
-*   **MAI MODIFICARE IL DB DIRETTAMENTE**: Nessuna modifica strutturale deve essere fatta a mano sul database (pgAdmin, DBeaver, ecc.).
-
+*   **MAI MODIFICARE IL DB DIRETTAMENTE**: Nessuna modifica strutturale (ALTER TABLE, CREATE TABLE, ADD COLUMN, DROP, ecc.) deve essere fatta a mano sul database (pgAdmin, DBeaver, psql, o comandi diretti).
 
 ---
 
@@ -29,7 +28,6 @@ Per mantenere il controllo totale sulla repository remota, è attiva la seguente
     2. L'assistente prepara e propone un messaggio di commit in **italiano** che riassume le modifiche fatte.
     3. L'assistente **chiede esplicita conferma** all'utente sulla bontà del messaggio.
     4. Solo dopo che l'utente ha confermato positivamente il messaggio, l'assistente esegue il commit e il push sulla repository remota.
-
 
 ---
 
@@ -47,6 +45,3 @@ Per garantire la scalabilità e la pulizia del codice frontend:
 ## 4. Lingua di Comunicazione
 
 *   **RISPOSTE IN ITALIANO**: L'assistente deve rispondere e interagire **sempre in lingua italiana** con l'utente in chat.
-
-
-

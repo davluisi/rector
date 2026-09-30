@@ -53,6 +53,9 @@ public class Utente {
     @Column(name = "ruolo", length = 20)
     private String ruolo;
 
+    @Column(name = "is_admin", nullable = false)
+    private boolean isAdmin = false;
+
     @PrePersist
     @PreUpdate
     public void aggiornaRuoloAutomatico() {

@@ -220,18 +220,7 @@ public class AuthController {
         }
 
         // Return user info on success
-        return ResponseEntity.ok(Map.of(
-            "id", utente.getId(),
-            "nome", utente.getNome(),
-            "cognome", utente.getCognome(),
-            "email", utente.getEmail(),
-            "urlImmagineProfilo", utente.getUrlImmagineProfilo() != null ? utente.getUrlImmagineProfilo() : "",
-            "peso", utente.getPeso() != null ? utente.getPeso().toString() : "",
-            "altezza", utente.getAltezza() != null ? utente.getAltezza().toString() : "",
-            "genere", utente.getGenere() != null ? utente.getGenere().name() : "",
-            "ruolo", utente.getRuolo() != null ? utente.getRuolo() : "",
-            "dataNascita", utente.getDataNascita() != null ? utente.getDataNascita().toString() : ""
-        ));
+        return ResponseEntity.ok(buildUserResponse(utente));
     }
 
     @PostMapping("/invia-link-reset")
@@ -332,18 +321,23 @@ public class AuthController {
 
         utenteRepository.save(utente);
 
-        return ResponseEntity.ok(Map.of(
-            "id", utente.getId(),
-            "nome", utente.getNome(),
-            "cognome", utente.getCognome(),
-            "email", utente.getEmail(),
-            "urlImmagineProfilo", utente.getUrlImmagineProfilo() != null ? utente.getUrlImmagineProfilo() : "",
-            "peso", utente.getPeso() != null ? utente.getPeso().toString() : "",
-            "altezza", utente.getAltezza() != null ? utente.getAltezza().toString() : "",
-            "genere", utente.getGenere() != null ? utente.getGenere().name() : "",
-            "ruolo", utente.getRuolo() != null ? utente.getRuolo() : "",
-            "dataNascita", utente.getDataNascita() != null ? utente.getDataNascita().toString() : ""
-        ));
+        return ResponseEntity.ok(buildUserResponse(utente));
+    }
+
+    private Map<String, Object> buildUserResponse(Utente utente) {
+        Map<String, Object> resp = new java.util.HashMap<>();
+        resp.put("id", utente.getId());
+        resp.put("nome", utente.getNome());
+        resp.put("cognome", utente.getCognome());
+        resp.put("email", utente.getEmail());
+        resp.put("urlImmagineProfilo", utente.getUrlImmagineProfilo() != null ? utente.getUrlImmagineProfilo() : "");
+        resp.put("peso", utente.getPeso() != null ? utente.getPeso().toString() : "");
+        resp.put("altezza", utente.getAltezza() != null ? utente.getAltezza().toString() : "");
+        resp.put("genere", utente.getGenere() != null ? utente.getGenere().name() : "");
+        resp.put("ruolo", utente.getRuolo() != null ? utente.getRuolo() : "");
+        resp.put("isAdmin", utente.isAdmin());
+        resp.put("dataNascita", utente.getDataNascita() != null ? utente.getDataNascita().toString() : "");
+        return resp;
     }
 
     @PutMapping("/cambia-password/{id}")

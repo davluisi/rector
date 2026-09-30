@@ -131,7 +131,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
       return;
     }
 
-    // 2. If it's a PDF or other document, copy to shareable document directory via modern File API, then share
+    // 2. If it's a PDF or other document, copy to document directory and open directly
     try {
       const fileExt = fileObj.name ? fileObj.name.split('.').pop() : 'pdf';
       const cleanName = `doc_${Date.now()}.${fileExt}`;
@@ -147,7 +147,14 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
         console.log('[AuthScreen] Modern copy failed, using original uri:', copyErr);
       }
 
-      if (await Sharing.isAvailableAsync()) {
+      if (Platform.OS === 'android') {
+        const contentUri = await FileSystem.getContentUriAsync(targetUri);
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: contentUri,
+          flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+          type: fileObj.mimeType || 'application/pdf',
+        });
+      } else if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(targetUri, {
           mimeType: fileObj.mimeType || 'application/pdf',
           dialogTitle: 'Visualizza documento',
