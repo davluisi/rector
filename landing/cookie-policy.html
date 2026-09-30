@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cookie Policy | Rector</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="legal-page">
+  <header class="header">
+    <div class="container header-container">
+      <a href="index.html" class="brand-logo">
+        <img src="assets/logo-esteso.png" alt="Rector Logo" class="brand-img" />
+      </a>
+      <a href="index.html" class="btn btn-secondary btn-sm">← Torna alla Home</a>
+    </div>
+  </header>
+
+  <main class="legal-content container">
+    <div class="legal-card">
+      <span class="badge badge-primary">Direttiva ePrivacy & Cookie Law</span>
+      <h1>Informativa sui Cookie (Cookie Policy)</h1>
+      <p class="legal-date">Ultimo aggiornamento: 1 Ottobre 2026</p>
+
+      <section>
+        <h2>1. Cosa sono i Cookie</h2>
+        <p>I cookie sono brevi file di testo che i siti web visitati inviano al terminale dell'utente, dove vengono memorizzati per essere poi ritrasmessi agli stessi siti alla visita successiva. I cookie servono a facilitare l'autenticazione, raccogliere dati statistici aggregati o ricordare le preferenze di navigazione.</p>
+      </section>
+
+      <section>
+        <h2>2. Tipologie di Cookie utilizzati da questo sito</h2>
+        <p>Il sito vetrina di Rector adotta un approccio improntato al rispetto della privacy e alla trasparenza:</p>
+        <ul>
+          <li><strong>Cookie Tecnici e Strettamente Necessari:</strong> Indispensabili per il corretto funzionamento del sito, per mantenere lo stato del tema (Dark Mode) e la memorizzazione della scelta espressa sul banner dei cookie. Non richiedono consenso preventivo.</li>
+          <li><strong>Cookie Analitici Anonimizzati (Facoltativi):</strong> Utilizzati unicamente in forma aggregata per capire quante visite riceve il sito vetrina e quali sezioni risultano più consultate, con mascheramento dell'indirizzo IP.</li>
+          <li><strong>Nessun Cookie di Profilazione Pubblicitaria di Terze Parti:</strong> Rector non inserisce né cede tracciatori a fini pubblicitari o di remarketing a soggetti terzi.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>3. Come gestire i cookie dal browser</h2>
+        <p>L'utente può comunque opporsi alla registrazione dei cookie configurando il proprio browser di navigazione (Chrome, Safari, Firefox, Edge). La disattivazione totale dei cookie tecnici potrebbe tuttavia limitare l'esperienza visiva ottimale del sito.</p>
+      </section>
+
+      <section>
+        <h2>4. Gestione Consenso</h2>
+        <p>Puoi modificare o resettare le tue preferenze in qualsiasi momento cliccando sul pulsante qui sotto:</p>
+        <button id="resetCookieBtn" class="btn btn-secondary btn-sm">Resetta Preferenze Cookie</button>
+      </section>
+    </div>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-bottom-simple">
+      <p>&copy; 2026 Rector App. Tutti i diritti riservati.</p>
+      <div class="footer-links">
+        <a href="privacy-policy.html">Privacy Policy</a>
+        <a href="terms.html">Termini di Servizio</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('resetCookieBtn')?.addEventListener('click', () => {
+      localStorage.removeItem('rector_cookie_consent');
+      alert('Preferenze cookie reimpostate con successo!');
+      window.location.reload();
+    });
+  </script>
+</body>
+</html>
