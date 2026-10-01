@@ -11,7 +11,7 @@ import {
   StatusBar as RNStatusBar,
   Keyboard
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 // Components
@@ -27,7 +27,8 @@ import { detectActiveApiUrl } from './config';
 // Personal Trainers list (currently empty, ready for backend integration)
 const TRAINERS = [];
 
-export default function App() {
+function MainContent() {
+  const insets = useSafeAreaInsets();
   const [search, setSearch] = useState('');
   const [authMode, setAuthMode] = useState('login');
   const [currentUser, setCurrentUser] = useState(null);
@@ -46,12 +47,17 @@ export default function App() {
   };
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView 
-        className="flex-1 bg-premiumDark"
-        onStartShouldSetResponder={() => { Keyboard.dismiss(); return false; }}
-      >
-        <StatusBar style="light" />
+    <View 
+      className="flex-1 bg-premiumDark"
+      style={{
+        paddingTop: insets.top,
+        paddingBottom: insets.bottom,
+        paddingLeft: insets.left,
+        paddingRight: insets.right,
+      }}
+      onStartShouldSetResponder={() => { Keyboard.dismiss(); return false; }}
+    >
+      <StatusBar style="light" />
 
       {/* Area Contenuto Principale */}
       <View style={{ flex: 1 }}>
@@ -228,7 +234,14 @@ export default function App() {
         </View>
       </View>
 
-      </SafeAreaView>
+    </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <MainContent />
     </SafeAreaProvider>
   );
 }

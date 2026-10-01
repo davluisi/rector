@@ -126,4 +126,29 @@ public class FileController {
                 .body(Map.of("errore", "Errore durante il caricamento del video: " + e.getMessage()));
         }
     }
+
+    @PostMapping("/upload-anteprima-esercizio")
+    public ResponseEntity<?> uploadAnteprimaEsercizio(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Il file immagine è vuoto"));
+        }
+
+        try {
+            String contentType = file.getContentType();
+            if (contentType == null || contentType.isEmpty() || "application/octet-stream".equals(contentType)) {
+                contentType = "image/jpeg";
+            }
+            String url = fileStorageService.uploadAnteprimaEsercizio(
+                file.getOriginalFilename(),
+                file.getInputStream(),
+                contentType
+            );
+            return ResponseEntity.ok(Map.of("url", url));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("errore", "Errore durante il caricamento dell'anteprima: " + e.getMessage()));
+        }
+    }
 }

@@ -23,6 +23,15 @@ public interface FileStorageService {
     String uploadVideoEsercizio(String filename, InputStream inputStream, String contentType);
 
     /**
+     * Uploads a thumbnail preview image for a PT exercise video (publicly accessible).
+     * @param filename Name of the file
+     * @param inputStream InputStream of the file content
+     * @param contentType Content type (e.g. image/jpeg, image/png)
+     * @return The public URL to access the preview image (via CloudFront if configured)
+     */
+    String uploadAnteprimaEsercizio(String filename, InputStream inputStream, String contentType);
+
+    /**
      * Uploads a PT personal document or certification (private).
      * @param filename Name of the file
      * @param inputStream InputStream of the file content

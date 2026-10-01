@@ -69,6 +69,21 @@ public class S3StorageService implements FileStorageService {
     }
 
     @Override
+    public String uploadAnteprimaEsercizio(String filename, InputStream inputStream, String contentType) {
+        String uniqueName = generateUniqueName(filename);
+        String key = "anteprime-esercizi-pt/" + uniqueName;
+        uploadToS3(key, inputStream, contentType);
+
+        if (cloudFrontUrl != null && !cloudFrontUrl.trim().isEmpty()) {
+            String cleanCfUrl = cloudFrontUrl.endsWith("/") ? cloudFrontUrl : cloudFrontUrl + "/";
+            return cleanCfUrl + key;
+        }
+
+        // Fallback to S3 direct URL
+        return String.format("https://%s.s3.amazonaws.com/%s", bucketName, key);
+    }
+
+    @Override
     public String uploadDocumentoPt(String filename, InputStream inputStream, String contentType) {
         String uniqueName = generateUniqueName(filename);
         String key = "documenti-pt/" + uniqueName;

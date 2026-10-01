@@ -158,6 +158,7 @@ public class ArchivioPtController {
             map.put("id", v.getId());
             map.put("nome", v.getNome());
             map.put("urlVideo", v.getUrlVideo());
+            map.put("urlAnteprima", v.getUrlAnteprima());
             map.put("dataCaricamento", v.getDataCaricamento());
             map.put("idGruppo", v.getGruppo() != null ? v.getGruppo().getId() : null);
             map.put("nomeGruppo", v.getGruppo() != null ? v.getGruppo().getNome() : null);
@@ -173,6 +174,7 @@ public class ArchivioPtController {
         Object idPtObj = body.get("idPt");
         String nome = (String) body.get("nome");
         String urlVideo = (String) body.get("urlVideo");
+        String urlAnteprima = (String) body.get("urlAnteprima");
         Object idGruppoObj = body.get("idGruppo");
 
         if (idPtObj == null || nome == null || nome.trim().isEmpty() || urlVideo == null || urlVideo.trim().isEmpty()) {
@@ -191,6 +193,9 @@ public class ArchivioPtController {
         video.setPersonalTrainer(ptOpt.get());
         video.setNome(nome.trim());
         video.setUrlVideo(urlVideo.trim());
+        if (urlAnteprima != null && !urlAnteprima.trim().isEmpty()) {
+            video.setUrlAnteprima(urlAnteprima.trim());
+        }
 
         if (idGruppoObj != null && !idGruppoObj.toString().isEmpty()) {
             Long idGruppo = Long.valueOf(idGruppoObj.toString());
@@ -204,6 +209,7 @@ public class ArchivioPtController {
         resp.put("id", salvato.getId());
         resp.put("nome", salvato.getNome());
         resp.put("urlVideo", salvato.getUrlVideo());
+        resp.put("urlAnteprima", salvato.getUrlAnteprima());
         resp.put("dataCaricamento", salvato.getDataCaricamento());
         resp.put("idGruppo", salvato.getGruppo() != null ? salvato.getGruppo().getId() : null);
         resp.put("nomeGruppo", salvato.getGruppo() != null ? salvato.getGruppo().getNome() : null);
@@ -211,7 +217,7 @@ public class ArchivioPtController {
         return ResponseEntity.status(HttpStatus.CREATED).body(resp);
     }
 
-    // 7. Modifica dettagli video (nome esercizio o gruppo associato)
+    // 7. Modifica dettagli video (nome esercizio o gruppo associato o anteprima)
     @PutMapping("/video/{id}")
     public ResponseEntity<?> modificaVideo(@PathVariable Long id, @RequestBody Map<String, Object> body) {
         Optional<VideoEsercizio> videoOpt = videoEsercizioRepository.findById(id);
@@ -227,6 +233,40 @@ public class ArchivioPtController {
             if (nuovoNome != null && !nuovoNome.trim().isEmpty()) {
                 video.setNome(nuovoNome.trim());
             }
+        }
+
+        if (body.containsKey("urlVideo")) {
+            String nuovoVideo = (String) body.get("urlVideo");
+            if (nuovoVideo != null && !nuovoVideo.trim().isEmpty()) {
+                String vecchioUrl = video.getUrlVideo();
+                if (vecchioUrl != null && !vecchioUrl.equals(nuovoVideo)) {
+                    int index = vecchioUrl.indexOf("video-esercizi-pt/");
+                    if (index != -1) {
+                        try {
+                            fileStorageService.delete(vecchioUrl.substring(index));
+                        } catch (Exception e) {
+                            System.err.println("Impossibile cancellare vecchio video da S3: " + e.getMessage());
+                        }
+                    }
+                }
+                video.setUrlVideo(nuovoVideo);
+            }
+        }
+
+        if (body.containsKey("urlAnteprima")) {
+            String nuovaAnteprima = (String) body.get("urlAnteprima");
+            String vecchiaAnteprima = video.getUrlAnteprima();
+            if (vecchiaAnteprima != null && nuovaAnteprima != null && !vecchiaAnteprima.equals(nuovaAnteprima)) {
+                int index = vecchiaAnteprima.indexOf("anteprime-esercizi-pt/");
+                if (index != -1) {
+                    try {
+                        fileStorageService.delete(vecchiaAnteprima.substring(index));
+                    } catch (Exception e) {
+                        System.err.println("Impossibile cancellare vecchia anteprima da S3: " + e.getMessage());
+                    }
+                }
+            }
+            video.setUrlAnteprima(nuovaAnteprima);
         }
 
         if (body.containsKey("idGruppo")) {
@@ -250,6 +290,7 @@ public class ArchivioPtController {
         resp.put("id", salvato.getId());
         resp.put("nome", salvato.getNome());
         resp.put("urlVideo", salvato.getUrlVideo());
+        resp.put("urlAnteprima", salvato.getUrlAnteprima());
         resp.put("dataCaricamento", salvato.getDataCaricamento());
         resp.put("idGruppo", salvato.getGruppo() != null ? salvato.getGruppo().getId() : null);
         resp.put("nomeGruppo", salvato.getGruppo() != null ? salvato.getGruppo().getNome() : null);
@@ -257,7 +298,7 @@ public class ArchivioPtController {
         return ResponseEntity.ok(resp);
     }
 
-    // 8. Elimina un video dall'archivio (e rimuove il file da S3 se applicabile)
+    // 8. Elimina un video dall'archivio (e rimuove il file e l'anteprima da S3 se applicabile)
     @DeleteMapping("/video/{id}")
     public ResponseEntity<?> eliminaVideo(@PathVariable Long id) {
         Optional<VideoEsercizio> videoOpt = videoEsercizioRepository.findById(id);
@@ -268,8 +309,9 @@ public class ArchivioPtController {
 
         VideoEsercizio video = videoOpt.get();
         String url = video.getUrlVideo();
+        String anteprima = video.getUrlAnteprima();
 
-        // Tenta rimozione da S3 se è salvato nel bucket S3 dell'app
+        // Tenta rimozione video da S3
         if (url != null) {
             int index = url.indexOf("video-esercizi-pt/");
             if (index != -1) {
@@ -278,6 +320,19 @@ public class ArchivioPtController {
                     fileStorageService.delete(key);
                 } catch (Exception e) {
                     System.err.println("Impossibile cancellare video da S3: " + key + " - " + e.getMessage());
+                }
+            }
+        }
+
+        // Tenta rimozione anteprima da S3
+        if (anteprima != null) {
+            int index = anteprima.indexOf("anteprime-esercizi-pt/");
+            if (index != -1) {
+                String key = anteprima.substring(index);
+                try {
+                    fileStorageService.delete(key);
+                } catch (Exception e) {
+                    System.err.println("Impossibile cancellare anteprima da S3: " + key + " - " + e.getMessage());
                 }
             }
         }

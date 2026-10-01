@@ -31,6 +31,9 @@ public class VideoEsercizio {
     @Column(name = "url_video", nullable = false, length = 1000)
     private String urlVideo;
 
+    @Column(name = "url_anteprima", length = 1000)
+    private String urlAnteprima;
+
     @Column(name = "data_caricamento", nullable = false)
     private LocalDateTime dataCaricamento = LocalDateTime.now();
 }
