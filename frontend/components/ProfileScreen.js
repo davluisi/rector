@@ -311,6 +311,27 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
     }
   }, [editingField]);
 
+  const getSubPageTitle = () => {
+    switch (editingField) {
+      case 'nome':
+        return 'Modifica nome';
+      case 'cognome':
+        return 'Modifica cognome';
+      case 'email':
+        return 'Modifica email';
+      case 'dataNascita':
+        return 'Modifica data di nascita';
+      case 'genere':
+        return 'Modifica genere';
+      case 'peso':
+        return 'Modifica peso';
+      case 'altezza':
+        return 'Modifica altezza';
+      default:
+        return 'Modifica';
+    }
+  };
+
   const handleCancelSubPage = () => {
     Animated.timing(subPageTranslateX, {
       toValue: SCREEN_WIDTH,
@@ -651,11 +672,11 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           transform: [{ translateX: viewTranslateX }],
         }}
       >
-        {/* Header locale per Profilo */}
+        {/* Header locale per Area personale */}
         <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
           <View className="w-10" />
           <View className="flex-1 items-center">
-            <Text className="text-lg font-bold text-white tracking-tight">Profilo</Text>
+            <Text className="text-lg font-bold text-white tracking-tight">Area personale</Text>
           </View>
           <View className="w-10" />
         </View>
@@ -675,59 +696,6 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
               )}
             </View>
             <Text className="text-white text-xl font-bold">{user.nome} {user.cognome}</Text>
-            <Text className="text-zinc-400 text-sm mt-1">{user.email}</Text>
-          </View>
-
-          {/* Profile Details Grid */}
-          <View className="flex-row flex-wrap justify-between gap-3 mb-6">
-            {/* Box Età */}
-            <View style={{ width: (SCREEN_WIDTH - 60) / 2 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-2xl p-4 items-center h-24 justify-center">
-              <Ionicons name="calendar-outline" size={22} color="#FFFFFF" className="mb-1" />
-              <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Età</Text>
-              <Text className="text-white text-[15px] font-bold">{calculateAge(user.dataNascita)}</Text>
-            </View>
-
-            {/* Box Genere */}
-            <View style={{ width: (SCREEN_WIDTH - 60) / 2 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-2xl p-4 items-center h-24 justify-center">
-              <Ionicons 
-                name={
-                  user.genere === 'MASCHIO' ? 'man-outline' :
-                  user.genere === 'FEMMINA' ? 'woman-outline' : 'person-outline'
-                } 
-                size={22} 
-                color={
-                  user.genere === 'FEMMINA' ? '#A0132C' :
-                  user.genere === 'MASCHIO' ? '#FFB430' : '#FFFFFF'
-                } 
-                className="mb-1" 
-              />
-              <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Genere</Text>
-              <Text className="text-white text-[15px] font-bold capitalize">
-                {user.genere ? user.genere.toLowerCase() : 'N/D'}
-              </Text>
-            </View>
-
-            {/* Box Peso (Only for Atleta) */}
-            {(user.ruolo === 'utente_atleta' || user.ruolo === 'entrambi') && (
-              <View style={{ width: (SCREEN_WIDTH - 60) / 2 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-2xl p-4 items-center h-24 justify-center">
-                <Ionicons name="scale-outline" size={22} color="#FFFFFF" className="mb-1" />
-                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Peso</Text>
-                <Text className="text-white text-[15px] font-bold">
-                  {user.peso ? `${user.peso} kg` : 'N/D'}
-                </Text>
-              </View>
-            )}
-
-            {/* Box Altezza (Only for Atleta) */}
-            {(user.ruolo === 'utente_atleta' || user.ruolo === 'entrambi') && (
-              <View style={{ width: (SCREEN_WIDTH - 60) / 2 }} className="bg-[#16161A]/40 border border-borderDark/50 rounded-2xl p-4 items-center h-24 justify-center">
-                <Ionicons name="resize-outline" size={22} color="#FFFFFF" className="mb-1" />
-                <Text className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mb-1">Altezza</Text>
-                <Text className="text-white text-[15px] font-bold">
-                  {user.altezza ? `${user.altezza} cm` : 'N/D'}
-                </Text>
-              </View>
-            )}
           </View>
 
           {/* Personal Trainer Archive Button */}
@@ -748,8 +716,8 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             activeOpacity={0.7}
             onPress={() => setCurrentScreen('edit')}
           >
-            <Ionicons name="create-outline" size={18} color="#FFFFFF" />
-            <Text className="text-zinc-300 text-[15px] font-bold">Modifica Profilo</Text>
+            <Ionicons name="person-outline" size={18} color="#FFFFFF" />
+            <Text className="text-zinc-300 text-[15px] font-bold">Profilo</Text>
           </TouchableOpacity>
 
           {/* Logout Button */}
@@ -775,7 +743,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           transform: [{ translateX: editTranslateX }],
         }}
       >
-        {/* Header locale per Modifica Profilo */}
+        {/* Header locale per Profilo */}
         <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
           <View className="w-10 items-start">
             <TouchableOpacity onPress={handleCancel} className="p-1">
@@ -783,7 +751,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             </TouchableOpacity>
           </View>
           <View className="flex-1 items-center">
-            <Text className="text-lg font-bold text-white tracking-tight">Modifica profilo</Text>
+            <Text className="text-lg font-bold text-white tracking-tight">Profilo</Text>
           </View>
           <View className="w-10" />
         </View>
@@ -928,7 +896,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
               zIndex: 100,
             }}
           >
-            {/* Header locale per Sub-page (always 'Modifica profilo') */}
+            {/* Header locale per Sub-page dinamico */}
             <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
               <View className="w-10 items-start">
                 <TouchableOpacity onPress={handleCancelSubPage} className="p-1">
@@ -936,7 +904,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
                 </TouchableOpacity>
               </View>
               <View className="flex-1 items-center">
-                <Text className="text-lg font-bold text-white tracking-tight">Modifica profilo</Text>
+                <Text className="text-lg font-bold text-white tracking-tight">{getSubPageTitle()}</Text>
               </View>
               <View className="w-10" />
             </View>
@@ -1158,7 +1126,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             </TouchableOpacity>
           </View>
           <View className="flex-1 items-center">
-            <Text className="text-lg font-bold text-white tracking-tight">Modifica profilo</Text>
+            <Text className="text-lg font-bold text-white tracking-tight">Modifica password</Text>
           </View>
           <View className="w-10" />
         </View>

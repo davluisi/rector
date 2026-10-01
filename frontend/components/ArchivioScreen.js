@@ -459,6 +459,14 @@ export default function ArchivioScreen({ user, onBack }) {
   const [uploadStatus, setUploadStatus] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Modal Conferma Eliminazione personalizzata (Gruppi e Video)
+  const [confirmDeleteModal, setConfirmDeleteModal] = useState({
+    visible: false,
+    tipo: null, // 'gruppo' | 'video'
+    item: null,
+    isDeleting: false,
+  });
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -535,33 +543,37 @@ export default function ArchivioScreen({ user, onBack }) {
     }
   };
 
-  const handleEliminaGruppo = async (gruppo) => {
-    Alert.alert(
-      'Elimina Gruppo',
-      `Sei sicuro di voler eliminare il gruppo "${gruppo.nome}"? I video contenuti non verranno cancellati ma spostati tra i video senza gruppo.`,
-      [
-        { text: 'Annulla', style: 'cancel' },
-        {
-          text: 'Elimina',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await fetch(`${getApiUrl()}/api/archivio/gruppi/${gruppo.id}`, {
-                method: 'DELETE',
-              });
-              if (res.ok) {
-                if (currentFolder && currentFolder.id === gruppo.id) {
-                  setCurrentFolder(null);
-                }
-                loadData();
-              }
-            } catch (e) {
-              console.error(e);
-            }
-          },
-        },
-      ]
-    );
+  const handleEliminaGruppo = (gruppo) => {
+    setConfirmDeleteModal({
+      visible: true,
+      tipo: 'gruppo',
+      item: gruppo,
+      isDeleting: false,
+    });
+  };
+
+  const eseguiEliminazioneGruppo = async () => {
+    const gruppo = confirmDeleteModal.item;
+    if (!gruppo) return;
+
+    try {
+      setConfirmDeleteModal((prev) => ({ ...prev, isDeleting: true }));
+      const res = await fetch(`${getApiUrl()}/api/archivio/gruppi/${gruppo.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        if (currentFolder && currentFolder.id === gruppo.id) {
+          setCurrentFolder(null);
+        }
+        setConfirmDeleteModal({ visible: false, tipo: null, item: null, isDeleting: false });
+        loadData();
+      } else {
+        setConfirmDeleteModal((prev) => ({ ...prev, isDeleting: false }));
+      }
+    } catch (e) {
+      console.error(e);
+      setConfirmDeleteModal((prev) => ({ ...prev, isDeleting: false }));
+    }
   };
 
   // Genera thumbnail a partire dal frame al secondo (float) indicato
@@ -964,29 +976,33 @@ export default function ArchivioScreen({ user, onBack }) {
   };
 
   const handleEliminaVideo = (video) => {
-    Alert.alert(
-      'Elimina Video',
-      `Sei sicuro di voler eliminare il video "${video.nome}"? L'operazione è irreversibile.`,
-      [
-        { text: 'Annulla', style: 'cancel' },
-        {
-          text: 'Elimina',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const res = await fetch(`${getApiUrl()}/api/archivio/video/${video.id}`, {
-                method: 'DELETE',
-              });
-              if (res.ok) {
-                loadData();
-              }
-            } catch (e) {
-              console.error(e);
-            }
-          },
-        },
-      ]
-    );
+    setConfirmDeleteModal({
+      visible: true,
+      tipo: 'video',
+      item: video,
+      isDeleting: false,
+    });
+  };
+
+  const eseguiEliminazioneVideo = async () => {
+    const video = confirmDeleteModal.item;
+    if (!video) return;
+
+    try {
+      setConfirmDeleteModal((prev) => ({ ...prev, isDeleting: true }));
+      const res = await fetch(`${getApiUrl()}/api/archivio/video/${video.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setConfirmDeleteModal({ visible: false, tipo: null, item: null, isDeleting: false });
+        loadData();
+      } else {
+        setConfirmDeleteModal((prev) => ({ ...prev, isDeleting: false }));
+      }
+    } catch (e) {
+      console.error(e);
+      setConfirmDeleteModal((prev) => ({ ...prev, isDeleting: false }));
+    }
   };
 
   // Riproduci video nativamente in-app
@@ -1080,7 +1096,7 @@ export default function ArchivioScreen({ user, onBack }) {
               </View>
 
               <View className="gap-3">
-                {/* 1. Cartella dei video senza gruppo assegnato: "Nessun gruppo" */}
+                {/* 1. Cartella dei video senza gruppo assegnato: "Senza gruppo" */}
                 <TouchableOpacity
                   className="bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-row items-center justify-between"
                   activeOpacity={0.7}
@@ -1088,7 +1104,7 @@ export default function ArchivioScreen({ user, onBack }) {
                     setCurrentFolder({
                       type: 'UNGROUPED',
                       id: null,
-                      nome: 'Nessun gruppo',
+                      nome: 'Senza gruppo',
                     })
                   }
                 >
@@ -1097,7 +1113,7 @@ export default function ArchivioScreen({ user, onBack }) {
                       <Ionicons name="folder-open-outline" size={24} color="#A1A1AA" />
                     </View>
                     <View className="flex-1">
-                      <Text className="text-white text-[15px] font-bold">Nessun gruppo</Text>
+                      <Text className="text-white text-[15px] font-bold">Senza gruppo</Text>
                       <Text className="text-zinc-500 text-xs mt-0.5">
                         {ungroupedVideos.length} {ungroupedVideos.length === 1 ? 'video' : 'video'}
                       </Text>
@@ -1192,30 +1208,8 @@ export default function ArchivioScreen({ user, onBack }) {
                 <View className="bg-[#16161A]/40 border border-borderDark/40 rounded-3xl p-8 items-center justify-center mt-2">
                   <Ionicons name="film-outline" size={48} color="#303038" className="mb-3" />
                   <Text className="text-zinc-400 font-bold text-sm text-center">
-                    Nessun video presente in questa cartella
+                    Nessun video presente
                   </Text>
-                  <Text className="text-zinc-600 text-xs text-center mt-1 mb-5">
-                    Tocca il pulsante qui sotto per aggiungere il tuo primo esercizio.
-                  </Text>
-                  <TouchableOpacity
-                    className="bg-accentCyan/15 border border-accentCyan/40 px-5 py-2.5 rounded-xl flex-row items-center gap-2"
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      setVideoInModifica(null);
-                      setNomeVideoInput('');
-                      setPickedVideo(null);
-                      setPickedThumbnail(null);
-                      setThumbnailOffset(0);
-                      setSelectedGruppoForVideo(
-                        currentFolder.type !== 'UNGROUPED' ? currentFolder.id : null
-                      );
-                      setErrorMessage('');
-                      setModalVideoVisible(true);
-                    }}
-                  >
-                    <Ionicons name="cloud-upload-outline" size={18} color="#00D2FF" />
-                    <Text className="text-accentCyan text-xs font-bold">Carica Video Esercizio</Text>
-                  </TouchableOpacity>
                 </View>
               ) : (
                 <View className="gap-3">
@@ -1395,8 +1389,6 @@ export default function ArchivioScreen({ user, onBack }) {
             </Text>
             <TextInput
               className="bg-inputDark border border-inputBorder rounded-xl px-4 h-12 color-white text-[15px] focus:border-accentCyan mb-4"
-              placeholder="es. Panca Piana con Bilanciere"
-              placeholderTextColor="#52525B"
               value={nomeVideoInput}
               onChangeText={setNomeVideoInput}
               editable={!isUploading}
@@ -1404,44 +1396,31 @@ export default function ArchivioScreen({ user, onBack }) {
 
             {/* Selettore Gruppo */}
             <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">
-              Assegna a un Gruppo (Opzionale)
+              Gruppo (opzionale)
             </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4 -mx-1 px-1">
-              <TouchableOpacity
-                className={`mr-2 px-3.5 py-2 rounded-xl border ${selectedGruppoForVideo === null
-                    ? 'bg-accentCyan/20 border-accentCyan'
-                    : 'bg-inputDark border-borderDark/60'
-                  }`}
-                activeOpacity={0.7}
-                onPress={() => setSelectedGruppoForVideo(null)}
-                disabled={isUploading}
-              >
-                <Text
-                  className={`text-xs font-bold ${selectedGruppoForVideo === null ? 'text-accentCyan' : 'text-zinc-400'
-                    }`}
-                >
-                  Nessun Gruppo
-                </Text>
-              </TouchableOpacity>
-              {gruppi.map((g) => (
-                <TouchableOpacity
-                  key={g.id}
-                  className={`mr-2 px-3.5 py-2 rounded-xl border ${selectedGruppoForVideo === g.id
-                      ? 'bg-[#FEB32F]/20 border-[#FEB32F]'
-                      : 'bg-inputDark border-borderDark/60'
-                    }`}
-                  activeOpacity={0.7}
-                  onPress={() => setSelectedGruppoForVideo(g.id)}
-                  disabled={isUploading}
-                >
-                  <Text
-                    className={`text-xs font-bold ${selectedGruppoForVideo === g.id ? 'text-[#FEB32F]' : 'text-zinc-300'
+              {gruppi.map((g) => {
+                const isSelected = selectedGruppoForVideo === g.id;
+                return (
+                  <TouchableOpacity
+                    key={g.id}
+                    className={`mr-2 px-3.5 py-2 rounded-xl border ${isSelected
+                        ? 'bg-[#FEB32F]/20 border-[#FEB32F]'
+                        : 'bg-inputDark border-borderDark/60'
                       }`}
+                    activeOpacity={0.7}
+                    onPress={() => setSelectedGruppoForVideo(isSelected ? null : g.id)}
+                    disabled={isUploading}
                   >
-                    {g.nome}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    <Text
+                      className={`text-xs font-bold ${isSelected ? 'text-[#FEB32F]' : 'text-zinc-300'
+                        }`}
+                    >
+                      {g.nome}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
 
             {/* File Video: sempre presente sia per nuovo che per modifica */}
@@ -1468,9 +1447,11 @@ export default function ArchivioScreen({ user, onBack }) {
                     {pickedVideo ? pickedVideo.name : 'Seleziona un video dalla galleria'}
                   </Text>
                 </View>
-                <Text className="text-accentCyan text-xs font-bold">
-                  {pickedVideo ? 'Sostituisci' : 'Sfoglia'}
-                </Text>
+                {pickedVideo ? (
+                  <Text className="text-accentCyan text-xs font-bold">
+                    Sostituisci
+                  </Text>
+                ) : null}
               </TouchableOpacity>
             </View>
 
@@ -1586,6 +1567,89 @@ export default function ArchivioScreen({ user, onBack }) {
         visible={!!playingVideo}
         onClose={() => setPlayingVideo(null)}
       />
+
+      {/* MODAL / CARD CONFERMA ELIMINAZIONE DEDICATA (GRUPPI E VIDEO) */}
+      <Modal
+        visible={confirmDeleteModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          if (!confirmDeleteModal.isDeleting) {
+            setConfirmDeleteModal({ visible: false, tipo: null, item: null, isDeleting: false });
+          }
+        }}
+      >
+        <View className="flex-1 bg-black/80 justify-center items-center px-6">
+          <View className="bg-[#18181C] border border-borderDark/80 w-full max-w-sm rounded-3xl p-6 shadow-2xl items-center">
+            {/* Icona Cestino in Badge Rosso/Rosa */}
+            <View className="w-14 h-14 rounded-2xl bg-accentPink/15 border border-accentPink/30 justify-center items-center mb-4">
+              <Ionicons name="trash-outline" size={28} color="#FF3B5C" />
+            </View>
+
+            {/* Titolo */}
+            <Text className="text-lg font-bold text-white text-center mb-2">
+              {confirmDeleteModal.tipo === 'gruppo' ? 'Elimina Gruppo' : 'Elimina Video'}
+            </Text>
+
+            {/* Descrizione / Messaggio informativo */}
+            <Text className="text-zinc-400 text-sm text-center leading-relaxed mb-6">
+              {confirmDeleteModal.tipo === 'gruppo' ? (
+                <>
+                  Sei sicuro di voler eliminare il gruppo{'\n'}
+                  <Text className="text-white font-semibold">"{confirmDeleteModal.item?.nome}"</Text>?
+                  {'\n\n'}
+                  <Text className="text-zinc-500 text-xs">
+                    I video contenuti non verranno cancellati, ma spostati nella sezione "Senza gruppo".
+                  </Text>
+                </>
+              ) : (
+                <>
+                  Sei sicuro di voler eliminare il video{'\n'}
+                  <Text className="text-white font-semibold">"{confirmDeleteModal.item?.nome}"</Text>?
+                  {'\n\n'}
+                  <Text className="text-zinc-500 text-xs">
+                    Questa operazione è irreversibile e rimuoverà definitivamente il file.
+                  </Text>
+                </>
+              )}
+            </Text>
+
+            {/* Azioni: Annulla ed Elimina */}
+            <View className="flex-row gap-3 w-full">
+              <TouchableOpacity
+                className="flex-1 bg-inputDark border border-inputBorder h-12 rounded-xl justify-center items-center"
+                activeOpacity={0.8}
+                disabled={confirmDeleteModal.isDeleting}
+                onPress={() =>
+                  setConfirmDeleteModal({ visible: false, tipo: null, item: null, isDeleting: false })
+                }
+              >
+                <Text className="text-zinc-300 font-bold text-sm">Annulla</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                className="flex-1 bg-accentPink h-12 rounded-xl justify-center items-center shadow-lg shadow-accentPink/20 flex-row gap-2"
+                activeOpacity={0.8}
+                disabled={confirmDeleteModal.isDeleting}
+                onPress={
+                  confirmDeleteModal.tipo === 'gruppo'
+                    ? eseguiEliminazioneGruppo
+                    : eseguiEliminazioneVideo
+                }
+              >
+                {confirmDeleteModal.isDeleting ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="trash" size={16} color="#FFFFFF" />
+                    <Text className="text-white font-bold text-sm">Elimina</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
