@@ -6,6 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 
 import { config } from '../config';
 import ArchivioScreen from './ArchivioScreen';
+import AdminScreen from './AdminScreen';
 
 const getApiUrl = () => config.apiUrl;
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -222,6 +223,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   const editTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const passwordTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const archivioTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const adminTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
 
   // Run transitions when currentScreen changes
   useEffect(() => {
@@ -230,27 +232,38 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
     let targetEdit = SCREEN_WIDTH;
     let targetPassword = SCREEN_WIDTH;
     let targetArchivio = SCREEN_WIDTH;
+    let targetAdmin = SCREEN_WIDTH;
 
     if (currentScreen === 'view') {
       targetView = 0;
       targetEdit = SCREEN_WIDTH;
       targetPassword = SCREEN_WIDTH;
       targetArchivio = SCREEN_WIDTH;
+      targetAdmin = SCREEN_WIDTH;
     } else if (currentScreen === 'edit') {
       targetView = -SCREEN_WIDTH;
       targetEdit = 0;
       targetPassword = SCREEN_WIDTH;
       targetArchivio = SCREEN_WIDTH;
+      targetAdmin = SCREEN_WIDTH;
     } else if (currentScreen === 'password') {
       targetView = -SCREEN_WIDTH;
       targetEdit = -SCREEN_WIDTH;
       targetPassword = 0;
       targetArchivio = SCREEN_WIDTH;
+      targetAdmin = SCREEN_WIDTH;
     } else if (currentScreen === 'archivio') {
       targetView = -SCREEN_WIDTH;
       targetEdit = SCREEN_WIDTH;
       targetPassword = SCREEN_WIDTH;
       targetArchivio = 0;
+      targetAdmin = SCREEN_WIDTH;
+    } else if (currentScreen === 'admin') {
+      targetView = -SCREEN_WIDTH;
+      targetEdit = SCREEN_WIDTH;
+      targetPassword = SCREEN_WIDTH;
+      targetArchivio = SCREEN_WIDTH;
+      targetAdmin = 0;
     }
 
     Animated.parallel([
@@ -271,6 +284,11 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
       }),
       Animated.timing(archivioTranslateX, {
         toValue: targetArchivio,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(adminTranslateX, {
+        toValue: targetAdmin,
         duration: 250,
         useNativeDriver: true,
       }),
@@ -707,6 +725,18 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             >
               <Ionicons name="folder-open" size={18} color="#FEB32F" />
               <Text className="text-[#FEB32F] text-[15px] font-bold">Archivio Esercizi</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Admin Panel Button */}
+          {(user.admin || user.isAdmin) && (
+            <TouchableOpacity 
+              className="bg-[#FFB430]/15 border border-[#FFB430]/40 h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3 shadow-sm"
+              activeOpacity={0.7}
+              onPress={() => setCurrentScreen('admin')}
+            >
+              <Ionicons name="shield-checkmark" size={18} color="#FFB430" />
+              <Text className="text-[#FFB430] text-[15px] font-bold">Pannello Admin</Text>
             </TouchableOpacity>
           )}
 
@@ -1221,6 +1251,25 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           onBack={() => setCurrentScreen('view')}
         />
       </Animated.View>
+
+      {/* 5. ADMIN SCREEN */}
+      {(user.admin || user.isAdmin) && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: [{ translateX: adminTranslateX }],
+          }}
+        >
+          <AdminScreen
+            user={user}
+            onBack={() => setCurrentScreen('view')}
+          />
+        </Animated.View>
+      )}
 
     </View>
   );

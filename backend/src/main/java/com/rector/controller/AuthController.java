@@ -4,8 +4,10 @@ import com.rector.dto.RegistrazioneRequest;
 import com.rector.dto.LoginRequest;
 import com.rector.entity.Utente;
 import com.rector.entity.OtpVerifica;
+import com.rector.entity.AtletaPersonalTrainer;
 import com.rector.repository.UtenteRepository;
 import com.rector.repository.OtpVerificaRepository;
+import com.rector.repository.AtletaPersonalTrainerRepository;
 import com.rector.service.FileStorageService;
 import com.rector.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +30,9 @@ public class AuthController {
 
     @Autowired
     private OtpVerificaRepository otpVerificaRepository;
+
+    @Autowired
+    private AtletaPersonalTrainerRepository atletaPersonalTrainerRepository;
 
     @Autowired
     private EmailService emailService;
@@ -342,6 +347,26 @@ public class AuthController {
         resp.put("ruolo", utente.getRuolo() != null ? utente.getRuolo() : "");
         resp.put("isAdmin", utente.isAdmin());
         resp.put("dataNascita", utente.getDataNascita() != null ? utente.getDataNascita().toString() : "");
+
+        // Se l'utente è un atleta, recupera i suoi personal trainer attivi
+        java.util.List<Map<String, Object>> ptList = new java.util.ArrayList<>();
+        if (utente.getAtleta() != null) {
+            java.util.List<AtletaPersonalTrainer> relazioni = atletaPersonalTrainerRepository.findActivePersonalTrainersByAtletaId(utente.getId());
+            for (AtletaPersonalTrainer rel : relazioni) {
+                if (rel.getPersonalTrainer() != null && rel.getPersonalTrainer().getUtente() != null) {
+                    Utente ptUtente = rel.getPersonalTrainer().getUtente();
+                    Map<String, Object> ptMap = new java.util.HashMap<>();
+                    ptMap.put("id", ptUtente.getId());
+                    ptMap.put("nome", ptUtente.getNome());
+                    ptMap.put("cognome", ptUtente.getCognome());
+                    ptMap.put("urlImmagineProfilo", ptUtente.getUrlImmagineProfilo() != null ? ptUtente.getUrlImmagineProfilo() : "");
+                    ptMap.put("verificato", rel.getPersonalTrainer().isVerificato());
+                    ptList.add(ptMap);
+                }
+            }
+        }
+        resp.put("personalTrainers", ptList);
+        resp.put("haPersonalTrainerAttivo", !ptList.isEmpty());
         return resp;
     }
 

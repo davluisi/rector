@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="0009-creazione-tabella-relazione-atleta-personal-trainer" author="rector">
+        <createTable tableName="atleta_personal_trainer">
+            <column name="id_atleta" type="BIGINT">
+                <constraints primaryKey="true" nullable="false" foreignKeyName="fk_atleta_pt_atleta" referencedTableName="utente_atleta" referencedColumnNames="id_utente" deleteCascade="true"/>
+            </column>
+            <column name="id_personal_trainer" type="BIGINT">
+                <constraints primaryKey="true" nullable="false" foreignKeyName="fk_atleta_pt_pt" referencedTableName="personal_trainer" referencedColumnNames="id_utente" deleteCascade="true"/>
+            </column>
+            <column name="data_inizio" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="attivo" type="BOOLEAN" defaultValueBoolean="true">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="atleta_personal_trainer" indexName="idx_atleta_pt_atleta">
+            <column name="id_atleta"/>
+        </createIndex>
+        <createIndex tableName="atleta_personal_trainer" indexName="idx_atleta_pt_pt">
+            <column name="id_personal_trainer"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
