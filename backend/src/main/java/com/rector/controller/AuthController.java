@@ -20,6 +20,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
+import java.util.List;
 import java.util.Random;
 import java.util.regex.Pattern;
 import java.time.LocalDateTime;
@@ -45,6 +46,9 @@ public class AuthController {
 
     @Autowired
     private SpecializzazioneRepository specializzazioneRepository;
+
+    @Autowired
+    private com.rector.repository.RecensioneRepository recensioneRepository;
 
     @Autowired
     private EmailService emailService;
@@ -160,9 +164,49 @@ public class AuthController {
                 specs.sort((a, b) -> ((String) a.get("nome")).compareToIgnoreCase((String) b.get("nome")));
             }
             map.put("specializzazioni", specs);
+            // Statistiche recensioni del PT
+            List<Object[]> stats = recensioneRepository.findStatsByPtId(u.getId());
+            double mediaStelle = 0.0;
+            long numeroRecensioni = 0L;
+            if (stats != null && !stats.isEmpty() && stats.get(0)[0] != null) {
+                mediaStelle = Math.round(((Number) stats.get(0)[0]).doubleValue() * 10.0) / 10.0;
+                numeroRecensioni = ((Number) stats.get(0)[1]).longValue();
+            }
+            map.put("mediaStelle", mediaStelle);
+            map.put("numeroRecensioni", numeroRecensioni);
+
+            // Calcolo Score Bayesiano per l'ordinamento:
+            // Se numeroRecensioni > 0: (v * R + m * C) / (v + m) con m=5 e C=3.5
+            // Se numeroRecensioni == 0: valore sentinella 2.99 affinché stia sotto a chi ha recensioni positive/medie, ma sopra a chi ha solo feedback negativi (< 3.0)
+            double bayesianScore;
+            if (numeroRecensioni > 0) {
+                double m = 5.0;
+                double c = 3.5;
+                bayesianScore = ((numeroRecensioni * mediaStelle) + (m * c)) / (numeroRecensioni + m);
+            } else {
+                bayesianScore = 2.99; // Collocazione neutrale per i nuovi trainer
+            }
+            map.put("bayesianScore", bayesianScore);
 
             result.add(map);
         }
+
+        // Ordinamento decrescente per bayesianScore; a parità di punteggio, ordine alfabetico per cognome e nome
+        result.sort((a, b) -> {
+            Double scoreA = (Double) a.get("bayesianScore");
+            Double scoreB = (Double) b.get("bayesianScore");
+            int cmp = scoreB.compareTo(scoreA);
+            if (cmp != 0) return cmp;
+
+            String cognomeA = (String) a.getOrDefault("cognome", "");
+            String cognomeB = (String) b.getOrDefault("cognome", "");
+            int cmpCognome = cognomeA.compareToIgnoreCase(cognomeB);
+            if (cmpCognome != 0) return cmpCognome;
+
+            String nomeA = (String) a.getOrDefault("nome", "");
+            String nomeB = (String) b.getOrDefault("nome", "");
+            return nomeA.compareToIgnoreCase(nomeB);
+        });
 
         return ResponseEntity.ok(result);
     }
@@ -491,6 +535,28 @@ public class AuthController {
                     ptMap.put("cognome", ptUtente.getCognome());
                     ptMap.put("urlImmagineProfilo", ptUtente.getUrlImmagineProfilo() != null ? ptUtente.getUrlImmagineProfilo() : "");
                     ptMap.put("verificato", rel.getPersonalTrainer().isVerificato());
+
+                    // Specializzazioni del PT attivo
+                    java.util.List<Map<String, Object>> activePtSpecs = new java.util.ArrayList<>();
+                    if (rel.getPersonalTrainer().getSpecializzazioni() != null) {
+                        for (Specializzazione s : rel.getPersonalTrainer().getSpecializzazioni()) {
+                            activePtSpecs.add(Map.of("id", s.getId(), "nome", s.getNome()));
+                        }
+                        activePtSpecs.sort((a, b) -> ((String) a.get("nome")).compareToIgnoreCase((String) b.get("nome")));
+                    }
+                    ptMap.put("specializzazioni", activePtSpecs);
+
+                    // Recensioni del PT attivo
+                    List<Object[]> ptStats = recensioneRepository.findStatsByPtId(ptUtente.getId());
+                    double activePtMedia = 0.0;
+                    long activePtTotale = 0L;
+                    if (ptStats != null && !ptStats.isEmpty() && ptStats.get(0)[0] != null) {
+                        activePtMedia = Math.round(((Number) ptStats.get(0)[0]).doubleValue() * 10.0) / 10.0;
+                        activePtTotale = ((Number) ptStats.get(0)[1]).longValue();
+                    }
+                    ptMap.put("mediaStelle", activePtMedia);
+                    ptMap.put("numeroRecensioni", activePtTotale);
+
                     ptList.add(ptMap);
                 }
             }

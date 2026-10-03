@@ -70,6 +70,7 @@ function MainContent() {
             </View>
 
             <HomeScreen 
+              key={currentUser ? `user-${currentUser.id}-${currentUser.ruolo}` : 'guest'}
               user={currentUser} 
               onNavigateWorkout={() => setActiveTab('workout')}
               onNavigateProfile={() => setActiveTab('profile')}

@@ -18,6 +18,8 @@ public interface AtletaPersonalTrainerRepository extends JpaRepository<AtletaPer
 
     long countByIdIdAtletaAndAttivoTrue(Long idAtleta);
 
+    long countByAttivoTrue();
+
     @Query("SELECT apt FROM AtletaPersonalTrainer apt " +
            "JOIN FETCH apt.personalTrainer pt " +
            "JOIN FETCH pt.utente u " +

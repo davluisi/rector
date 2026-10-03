@@ -317,15 +317,13 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
         return;
       }
 
-      // Success: show message first, then notify App after 1.2 seconds
+      // Success: show message first, then immediately update user and return to Home tab
       setSuccessMessage("Accesso effettuato");
       setTimeout(() => {
-        onClose(); // Slide out to Home tab first
-        setTimeout(() => {
-          onLoginSuccess(data);
-          resetForm();
-        }, 300); // Wait for the 250ms tab transition to finish
-      }, 1200);
+        onLoginSuccess(data);
+        resetForm();
+        onClose();
+      }, 700);
     } catch (error) {
       setErrorMessage('Impossibile connettersi al server');
       console.error(error);
@@ -878,8 +876,8 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
             <Text className="text-red-500 text-xs font-semibold">{errorMessage}</Text>
           </View>
         ) : isThisScreen && successMessage ? (
-          <View className="bg-accentCyan/10 border border-accentCyan/20 px-4 py-2.5 rounded-xl self-start">
-            <Text className="text-accentCyan text-xs font-semibold">{successMessage}</Text>
+          <View className="bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 rounded-xl self-start">
+            <Text className="text-emerald-400 text-xs font-semibold">{successMessage}</Text>
           </View>
         ) : null}
       </View>
@@ -1865,7 +1863,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
             contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
           >
             <View className="w-full items-center py-12">
-              <Ionicons name="checkmark-circle" size={80} color="#FFB430" className="mb-6" />
+              <Ionicons name="checkmark-circle" size={80} color="#10B981" className="mb-6" />
               <Text className="text-white text-xl font-bold text-center mb-2">
                 Registrazione avvenuta!
               </Text>

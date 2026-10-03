@@ -24,6 +24,9 @@ public class AdminController {
     private PersonalTrainerRepository personalTrainerRepository;
 
     @Autowired
+    private com.rector.repository.AtletaPersonalTrainerRepository atletaPersonalTrainerRepository;
+
+    @Autowired
     private FileStorageService fileStorageService;
 
     // Helper to check admin privileges
@@ -48,6 +51,7 @@ public class AdminController {
         long totalPt = personalTrainerRepository.count();
         List<PersonalTrainer> ptInAttesa = personalTrainerRepository.findByVerificato(false);
         List<PersonalTrainer> ptVerificati = personalTrainerRepository.findByVerificato(true);
+        long abbonamentiAttivi = atletaPersonalTrainerRepository.countByAttivoTrue();
 
         long atletiCount = totalUtenti - totalPt;
         if (atletiCount < 0) atletiCount = 0;
@@ -58,8 +62,11 @@ public class AdminController {
                 "ptInAttesa", ptInAttesa.size(),
                 "ptVerificati", ptVerificati.size(),
                 "totaleAtleti", atletiCount,
+                "abbonamentiAttivi", abbonamentiAttivi,
                 "volumeTransato", "0.00",
-                "guadagnoPiattaforma", "0.00"
+                "guadagnoPiattaforma", "0.00",
+                "volumeMensile", "0.00",
+                "guadagnoMensile", "0.00"
         ));
     }
 

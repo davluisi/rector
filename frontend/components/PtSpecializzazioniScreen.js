@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { config } from '../config';
@@ -36,6 +36,16 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
       });
   }, [user]);
 
+  const successTimerRef = useRef(null);
+  const errorTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    };
+  }, []);
+
   const toggleSpecializzazione = (id) => {
     setErrorMessage('');
     setSuccessMessage('');
@@ -43,7 +53,11 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
       setSelectedIds(prev => prev.filter(item => item !== id));
     } else {
       if (selectedIds.length >= 5) {
-        setErrorMessage('Puoi selezionare fino a un massimo di 5 specializzazioni');
+        setErrorMessage('Hai già selezionato 5 opzioni');
+        if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = setTimeout(() => {
+          setErrorMessage('');
+        }, 3000);
         return;
       }
       setSelectedIds(prev => [...prev, id]);
@@ -68,7 +82,12 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
         return;
       }
 
-      setSuccessMessage('Specializzazioni salvate con successo!');
+      setSuccessMessage('Specializzazioni salvate!');
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+      successTimerRef.current = setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+
       if (onUpdateUser) {
         // Aggiorna l'oggetto utente in memoria
         const updatedSpecializzazioni = allSpecializzazioni.filter(s => selectedIds.includes(s.id));
@@ -98,87 +117,81 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
         <View className="w-10" />
       </View>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 40 }}
-      >
-        <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-1">
-          Il tuo target professionale
-        </Text>
-        <Text className="text-white text-2xl font-black mb-2">
-          Le tue Specializzazioni & Target
-        </Text>
-        <Text className="text-zinc-400 text-sm leading-5 mb-5">
-          Scegli gli ambiti e gli obiettivi in cui sei specializzato per aiutare gli atleti a trovarti più facilmente. Puoi selezionare <Text className="text-[#FEB32F] font-bold">fino a un massimo di 5</Text> specializzazioni.
+      {/* Contenuto statico superiore */}
+      <View className="px-6 pt-5">
+        <Text className="text-zinc-400 text-sm leading-5 mb-4">
+          Scegli gli ambiti e gli obiettivi in cui sei specializzato per aiutare gli utenti a trovarti più facilmente.{"\n"}
+          Puoi selezionarne fino a un massimo di 5.
         </Text>
 
-        {/* Counter badge */}
-        <View className="flex-row items-center justify-between bg-[#16161A] border border-borderDark/60 rounded-2xl p-4 mb-6">
-          <View className="flex-row items-center gap-2.5">
-            <Ionicons name="ribbon-outline" size={20} color="#FEB32F" />
-            <Text className="text-zinc-300 text-sm font-semibold">Specializzazioni selezionate</Text>
+        {/* Riga unica: Messaggio a sinistra e Contatore a destra alla stessa altezza */}
+        <View className="h-8 flex-row items-center justify-between mb-1.5 mt-1">
+          <View className="flex-1 mr-3 justify-center">
+            {errorMessage ? (
+              <View className="bg-red-500/10 border border-red-500/30 px-3 py-1 rounded-xl self-start">
+                <Text className="text-red-400 text-xs font-semibold">{errorMessage}</Text>
+              </View>
+            ) : successMessage ? (
+              <View className="bg-emerald-500/10 border border-emerald-500/30 px-3 py-1 rounded-xl self-start">
+                <Text className="text-emerald-400 text-xs font-semibold">{successMessage}</Text>
+              </View>
+            ) : null}
           </View>
-          <View className={`px-3 py-1 rounded-xl border ${selectedIds.length === 5 ? 'bg-[#FEB32F]/20 border-[#FEB32F]' : 'bg-[#1F1F24] border-[#2C2C34]'}`}>
-            <Text className={`font-bold text-sm ${selectedIds.length === 5 ? 'text-[#FEB32F]' : 'text-white'}`}>
-              {selectedIds.length} / 5
-            </Text>
-          </View>
+
+          <Text className="text-zinc-400 text-xs font-semibold">
+            Selezionate <Text className={selectedIds.length === 5 ? 'text-[#FEB32F] font-bold' : 'text-zinc-200 font-bold'}>{selectedIds.length}/5</Text>
+          </Text>
         </View>
+      </View>
 
-        {/* Messaggi Feedback */}
-        {errorMessage ? (
-          <View className="bg-red-500/10 border border-red-500/30 px-4 py-3 rounded-2xl mb-4">
-            <Text className="text-red-400 text-xs font-semibold">{errorMessage}</Text>
-          </View>
-        ) : null}
-
-        {successMessage ? (
-          <View className="bg-emerald-500/10 border border-emerald-500/30 px-4 py-3 rounded-2xl mb-4">
-            <Text className="text-emerald-400 text-xs font-semibold">{successMessage}</Text>
-          </View>
-        ) : null}
-
-        {/* Elenco Chips */}
+      {/* Lista a Checkbox scorrevole indipendente */}
+      <View className="flex-1 px-6 pb-3">
         {loading ? (
-          <View className="py-12 justify-center items-center">
+          <View className="flex-1 justify-center items-center">
             <ActivityIndicator size="small" color="#FEB32F" />
             <Text className="text-zinc-500 text-xs mt-3">Caricamento specializzazioni...</Text>
           </View>
         ) : (
-          <View className="flex-row flex-wrap gap-2.5 mb-8">
-            {allSpecializzazioni.map((spec) => {
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            className="flex-1 bg-[#16161A] border border-borderDark/60 rounded-2xl px-4"
+            contentContainerStyle={{ paddingVertical: 4 }}
+          >
+            {allSpecializzazioni.map((spec, index) => {
               const isSelected = selectedIds.includes(spec.id);
+              const isLast = index === allSpecializzazioni.length - 1;
               return (
                 <TouchableOpacity
                   key={spec.id}
-                  activeOpacity={0.7}
+                  activeOpacity={0.65}
                   onPress={() => toggleSpecializzazione(spec.id)}
-                  className={`flex-row items-center px-4 py-2.5 rounded-2xl border transition-all ${
-                    isSelected
-                      ? 'bg-[#FEB32F]/15 border-[#FEB32F] shadow-sm shadow-[#FEB32F]/10'
-                      : 'bg-[#16161A] border-borderDark/60'
+                  className={`flex-row items-center justify-between py-3.5 px-1 ${
+                    !isLast ? 'border-b border-[#222228]/80' : ''
                   }`}
                 >
-                  <Ionicons
-                    name={isSelected ? "checkmark-circle" : "add-circle-outline"}
-                    size={18}
-                    color={isSelected ? "#FEB32F" : "#71717A"}
-                    style={{ marginRight: 6 }}
-                  />
                   <Text
-                    className={`text-sm font-semibold ${
-                      isSelected ? 'text-[#FEB32F]' : 'text-zinc-300'
+                    className={`text-sm flex-1 mr-3 ${
+                      isSelected ? 'text-[#FEB32F] font-semibold' : 'text-zinc-300 font-medium'
                     }`}
                   >
                     {spec.nome}
                   </Text>
+
+                  {/* Checkbox Icon */}
+                  <Ionicons
+                    name={isSelected ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={isSelected ? '#FEB32F' : '#52525B'}
+                  />
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </ScrollView>
         )}
+      </View>
 
-        {/* Bottone Salva */}
+      {/* Footer fisso con bottone Salva */}
+      <View className="px-6 pt-3 pb-8 border-t border-[#1A1A1E] bg-premiumDark">
         <TouchableOpacity
           onPress={handleSave}
           disabled={saving || loading}
@@ -193,11 +206,11 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
           ) : (
             <>
               <Ionicons name="save-outline" size={18} color="#0D0D11" />
-              <Text className="text-zinc-950 text-base font-bold">Salva Specializzazioni</Text>
+              <Text className="text-zinc-950 text-base font-bold">Salva</Text>
             </>
           )}
         </TouchableOpacity>
-      </ScrollView>
+      </View>
     </View>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, Dimensions, Keyboard } from 'react-native';
+import { View, Text, TouchableOpacity, Image, ScrollView, TextInput, KeyboardAvoidingView, Platform, Animated, Dimensions, Keyboard, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -67,6 +67,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   const [currentScreen, setCurrentScreen] = useState('view'); // 'view' | 'edit' | 'password'
   const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
   const [otpCode, setOtpCode] = useState('');
+  const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
 
   // Form states for Editing
   const [nome, setNome] = useState('');
@@ -754,7 +755,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
                 onPress={() => setCurrentScreen('specializzazioni')}
               >
                 <Ionicons name="ribbon-outline" size={18} color="#FEB32F" />
-                <Text className="text-[#FEB32F] text-[15px] font-bold">Specializzazioni & Target</Text>
+                <Text className="text-[#FEB32F] text-[15px] font-bold">Specializzazioni</Text>
               </TouchableOpacity>
             </>
           )}
@@ -785,7 +786,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           <TouchableOpacity 
             className="bg-accentPink/10 border border-accentPink/20 h-12 rounded-xl justify-center items-center flex-row gap-2"
             activeOpacity={0.8}
-            onPress={onLogout}
+            onPress={() => setShowLogoutConfirmModal(true)}
           >
             <Ionicons name="log-out" size={18} color="#A0132C" />
             <Text className="text-accentPink text-[15px] font-bold">Logout</Text>
@@ -1321,6 +1322,50 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           />
         </Animated.View>
       )}
+
+      {/* MODAL DI CONFERMA LOGOUT */}
+      <Modal
+        visible={showLogoutConfirmModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowLogoutConfirmModal(false)}
+      >
+        <View className="flex-1 justify-center items-center bg-black/80 px-6">
+          <View className="w-full max-w-sm bg-[#16161A] border border-[#282832] rounded-3xl p-6 items-center shadow-2xl">
+            <View className="w-14 h-14 rounded-2xl bg-accentPink/10 border border-accentPink/20 justify-center items-center mb-4">
+              <Ionicons name="log-out-outline" size={28} color="#A0132C" />
+            </View>
+
+            <Text className="text-white text-lg font-bold text-center">
+              Vuoi uscire dall'account?
+            </Text>
+            <Text className="text-zinc-400 text-xs text-center mt-1.5 leading-relaxed">
+              Dovrai effettuare nuovamente l'accesso per visualizzare i tuoi dati e le tue schede.
+            </Text>
+
+            <View className="flex-row gap-3 w-full mt-6">
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setShowLogoutConfirmModal(false)}
+                className="flex-1 h-12 rounded-xl bg-[#202026] border border-[#2D2D38] justify-center items-center"
+              >
+                <Text className="text-zinc-300 font-semibold text-sm">Annulla</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => {
+                  setShowLogoutConfirmModal(false);
+                  if (onLogout) onLogout();
+                }}
+                className="flex-1 h-12 rounded-xl bg-accentPink justify-center items-center shadow-md shadow-accentPink/20"
+              >
+                <Text className="text-white font-bold text-sm">Esci</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
     </View>
   );

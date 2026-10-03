@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="0011-creazione-tabella-recensione-pt" author="rector">
+        <createTable tableName="recensione">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="id_atleta" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_recensione_atleta" referencedTableName="utente_atleta" referencedColumnNames="id_utente" deleteCascade="true"/>
+            </column>
+            <column name="id_personal_trainer" type="BIGINT">
+                <constraints nullable="false" foreignKeyName="fk_recensione_pt" referencedTableName="personal_trainer" referencedColumnNames="id_utente" deleteCascade="true"/>
+            </column>
+            <column name="stelle" type="INT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="commento" type="VARCHAR(1000)">
+                <constraints nullable="true"/>
+            </column>
+            <column name="data_creazione" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+            <column name="data_modifica" type="TIMESTAMP" defaultValueComputed="CURRENT_TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="recensione"
+                             columnNames="id_atleta, id_personal_trainer"
+                             constraintName="uk_recensione_atleta_pt"/>
+
+        <createIndex tableName="recensione" indexName="idx_recensione_pt">
+            <column name="id_personal_trainer"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
