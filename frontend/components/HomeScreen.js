@@ -1,7 +1,9 @@
-import React from 'react';
-import { View, Text, Image, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, Image, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import HeroSection from './HeroSection';
+import FilterModal from './FilterModal';
+import { config } from '../config';
 
 export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile }) {
   // L'utente è atleta se ha ruolo 'utente_atleta' o 'entrambi', oppure se non è loggato
@@ -11,30 +13,192 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
   const personalTrainers = user?.personalTrainers || [];
   const haPersonalTrainerAttivo = Boolean(user?.haPersonalTrainerAttivo || personalTrainers.length > 0);
 
+  // Lista di tutti i PT verificati presenti nel DB
+  const [ptVerificati, setPtVerificati] = useState([]);
+  const [loadingPt, setLoadingPt] = useState(true);
+
+  // Catalogo specializzazioni
+  const [specializzazioni, setSpecializzazioni] = useState([]);
+  
+  // Stati filtri
+  const [isFilterModalVisible, setIsFilterModalVisible] = useState(false);
+  const [selectedSpecializzazioneIds, setSelectedSpecializzazioneIds] = useState([]);
+  const [etaMin, setEtaMin] = useState(null);
+  const [etaMax, setEtaMax] = useState(null);
+
+  // Caricamento catalogo specializzazioni una volta sola
+  useEffect(() => {
+    fetch(`${config.apiUrl}/api/auth/specializzazioni`)
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setSpecializzazioni(data);
+        }
+      })
+      .catch(err => {
+        console.error('[HomeScreen] Errore caricamento specializzazioni:', err);
+      });
+  }, []);
+
+  // Fetch dei personal trainer con filtri applicati
+  const fetchPt = useCallback(() => {
+    if (!isAtleta || haPersonalTrainerAttivo) return;
+
+    setLoadingPt(true);
+    const queryParams = new URLSearchParams();
+    if (selectedSpecializzazioneIds && selectedSpecializzazioneIds.length > 0) {
+      selectedSpecializzazioneIds.forEach(id => {
+        queryParams.append('specializzazioneIds', id);
+      });
+    }
+    if (etaMin !== null && etaMin !== undefined && etaMin !== '') queryParams.append('etaMin', etaMin);
+    if (etaMax !== null && etaMax !== undefined && etaMax !== '') queryParams.append('etaMax', etaMax);
+
+    const url = `${config.apiUrl}/api/auth/personal-trainers/verificati${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error('Errore durante il recupero dei personal trainer');
+        return res.json();
+      })
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setPtVerificati(data);
+        }
+      })
+      .catch((err) => {
+        console.error('[HomeScreen] Errore caricamento PT verificati:', err);
+      })
+      .finally(() => {
+        setLoadingPt(false);
+      });
+  }, [isAtleta, haPersonalTrainerAttivo, selectedSpecializzazioneIds, etaMin, etaMax]);
+
+  useEffect(() => {
+    fetchPt();
+  }, [fetchPt]);
+
+  const hasActiveFilters = Boolean((selectedSpecializzazioneIds && selectedSpecializzazioneIds.length > 0) || etaMin || etaMax);
+
   // CASO 1: L'utente atleta NON ha nessun personal trainer attivo (oppure è un visitatore/non registrato)
   if (isAtleta && !haPersonalTrainerAttivo) {
     return (
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, flexGrow: 1 }}>
-        {/* Scritta Hero / Banner */}
-        <HeroSection />
-
-        {/* Card di invito / spiegazione */}
-        <View className="mx-5 my-2 p-5 bg-[#16161A] border border-borderDark/60 rounded-3xl">
-          <View className="w-12 h-12 rounded-2xl bg-[#FEB32F]/15 border border-[#FEB32F]/30 justify-center items-center mb-3">
-            <Ionicons name="sparkles" size={24} color="#FEB32F" />
+        {/* Testata Hero con Icona Filtra affiancata in alto */}
+        <View className="px-5 pt-4 pb-1 flex-row items-end justify-between">
+          <View className="flex-1 mr-3">
+            <Text className="text-2xl font-extrabold text-white tracking-tight">Trova il personal trainer</Text>
+            <Text className="text-[26px] font-black text-accentCyan uppercase mt-0.5">più adatto a te</Text>
           </View>
-          <Text className="text-white text-lg font-bold">Raggiungi i tuoi obiettivi</Text>
-          <Text className="text-zinc-400 text-sm mt-1 leading-5">
-            Non hai ancora un Personal Trainer associato. Affidati a un professionista certificato per schede personalizzate e monitoraggio costante.
-          </Text>
+
+          {/* Icona Classica Filtra */}
+          <TouchableOpacity
+            onPress={() => setIsFilterModalVisible(true)}
+            activeOpacity={0.7}
+            className={`w-11 h-11 rounded-2xl border justify-center items-center relative mb-1 ${
+              hasActiveFilters 
+                ? 'bg-[#FEB32F]/20 border-[#FEB32F]' 
+                : 'bg-[#16161A] border-borderDark/60'
+            }`}
+          >
+            <Ionicons 
+              name="options-outline" 
+              size={20} 
+              color={hasActiveFilters ? '#FEB32F' : '#A1A1AA'} 
+            />
+            {hasActiveFilters && (
+              <View className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-[#FEB32F]" />
+            )}
+          </TouchableOpacity>
         </View>
 
-        {/* Placeholder elenco trainer (pronto per integrazione con lista PT disponibili) */}
-        <View className="flex-1 justify-center items-center px-6 mt-8 py-6">
-          <Ionicons name="people-outline" size={52} color="#303038" className="mb-3" />
-          <Text className="text-zinc-400 font-bold text-base text-center">Nessun personal trainer disponibile</Text>
-          <Text className="text-zinc-600 text-xs text-center mt-1">Presto troverai qui i migliori professionisti certificati della tua zona.</Text>
-        </View>
+        {loadingPt ? (
+          <View className="py-8 justify-center items-center">
+            <ActivityIndicator size="small" color="#FEB32F" />
+            <Text className="text-zinc-500 text-xs mt-3">Caricamento personal trainer...</Text>
+          </View>
+        ) : ptVerificati.length > 0 ? (
+          <View className="px-5 mt-2">
+            {ptVerificati.map((pt, index) => (
+              <View 
+                key={pt.id || pt.idUtente || index}
+                className="bg-[#16161A] border border-borderDark/60 rounded-2xl p-4 mb-3"
+              >
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-row items-center flex-1 mr-3">
+                    <View className="w-14 h-14 rounded-full bg-[#1E1E24] border border-[#2A2A34] justify-center items-center overflow-hidden mr-3.5">
+                      {pt.urlImmagineProfilo ? (
+                        <Image source={{ uri: pt.urlImmagineProfilo }} className="w-full h-full" />
+                      ) : (
+                        <Ionicons name="person" size={26} color="#A1A1AA" />
+                      )}
+                    </View>
+                    <View className="flex-1">
+                      <View className="flex-row items-center gap-1.5">
+                        <Text className="text-white text-base font-bold" numberOfLines={1}>
+                          {pt.nome} {pt.cognome}
+                        </Text>
+                        <Ionicons name="checkmark-circle" size={16} color="#FFB430" />
+                      </View>
+                      <Text className="text-zinc-400 text-xs mt-0.5">
+                        {pt.eta !== null && pt.eta !== undefined ? `${pt.eta} anni` : 'Età non specificata'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View className="bg-[#1F1F26] border border-[#2C2C36] px-3 py-1.5 rounded-xl">
+                    <Text className="text-zinc-300 text-xs font-semibold">Disponibile</Text>
+                  </View>
+                </View>
+
+                {/* Badge Specializzazioni del PT */}
+                {Array.isArray(pt.specializzazioni) && pt.specializzazioni.length > 0 && (
+                  <View className="flex-row flex-wrap gap-1.5 mt-3 pt-3 border-t border-[#222228]">
+                    {pt.specializzazioni.map((spec) => (
+                      <View 
+                        key={spec.id} 
+                        className="bg-[#1E1E24] border border-[#2D2D38] px-2.5 py-1 rounded-lg"
+                      >
+                        <Text className="text-zinc-400 text-[11px] font-medium">{spec.nome}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+            ))}
+          </View>
+        ) : (
+          /* Placeholder se non ci sono PT verificati nel DB o se i filtri non restituiscono risultati */
+          <View className="flex-1 justify-center items-center px-6 mt-4 py-8">
+            <Ionicons name="people-outline" size={52} color="#303038" className="mb-3" />
+            <Text className="text-zinc-400 font-bold text-base text-center">
+              {hasActiveFilters ? 'Nessun risultato' : 'Nessun personal trainer disponibile'}
+            </Text>
+            <Text className="text-zinc-600 text-xs text-center mt-1">
+              {hasActiveFilters ? 'Prova a modificare i criteri di ricerca' : 'Presto troverai qui i migliori professionisti certificati della tua zona.'}
+            </Text>
+          </View>
+        )}
+
+        {/* Modal dei Filtri */}
+        <FilterModal
+          visible={isFilterModalVisible}
+          onClose={() => setIsFilterModalVisible(false)}
+          specializzazioni={specializzazioni}
+          selectedSpecializzazioneIds={selectedSpecializzazioneIds}
+          etaMin={etaMin}
+          etaMax={etaMax}
+          onApply={({ specializzazioneIds, etaMin, etaMax }) => {
+            setSelectedSpecializzazioneIds(specializzazioneIds || []);
+            setEtaMin(etaMin);
+            setEtaMax(etaMax);
+          }}
+          onReset={() => {
+            setSelectedSpecializzazioneIds([]);
+            setEtaMin(null);
+            setEtaMax(null);
+          }}
+        />
       </ScrollView>
     );
   }

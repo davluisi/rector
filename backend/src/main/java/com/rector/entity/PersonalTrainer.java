@@ -35,4 +35,12 @@ public class PersonalTrainer {
 
     @Column(name = "certificazioni_key", length = 1000)
     private String certificazioniKey;
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "personal_trainer_specializzazione",
+        joinColumns = @JoinColumn(name = "id_personal_trainer"),
+        inverseJoinColumns = @JoinColumn(name = "id_specializzazione")
+    )
+    private java.util.Set<Specializzazione> specializzazioni = new java.util.HashSet<>();
 }

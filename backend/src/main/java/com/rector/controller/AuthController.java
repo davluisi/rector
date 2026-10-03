@@ -5,9 +5,13 @@ import com.rector.dto.LoginRequest;
 import com.rector.entity.Utente;
 import com.rector.entity.OtpVerifica;
 import com.rector.entity.AtletaPersonalTrainer;
+import com.rector.entity.PersonalTrainer;
+import com.rector.entity.Specializzazione;
 import com.rector.repository.UtenteRepository;
 import com.rector.repository.OtpVerificaRepository;
 import com.rector.repository.AtletaPersonalTrainerRepository;
+import com.rector.repository.PersonalTrainerRepository;
+import com.rector.repository.SpecializzazioneRepository;
 import com.rector.service.FileStorageService;
 import com.rector.service.EmailService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +23,8 @@ import java.util.Map;
 import java.util.Random;
 import java.util.regex.Pattern;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.Period;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -35,7 +41,131 @@ public class AuthController {
     private AtletaPersonalTrainerRepository atletaPersonalTrainerRepository;
 
     @Autowired
+    private PersonalTrainerRepository personalTrainerRepository;
+
+    @Autowired
+    private SpecializzazioneRepository specializzazioneRepository;
+
+    @Autowired
     private EmailService emailService;
+
+    // Catalogo specializzazioni ordinate alfabeticamente
+    @GetMapping("/specializzazioni")
+    public ResponseEntity<?> getSpecializzazioni() {
+        return ResponseEntity.ok(specializzazioneRepository.findAllByOrderByNomeAsc());
+    }
+
+    // Endpoint aggiornamento specializzazioni per il Personal Trainer (massimo 5)
+    @PutMapping("/pt/{idPt}/specializzazioni")
+    public ResponseEntity<?> aggiornaSpecializzazioniPt(@PathVariable Long idPt, @RequestBody Map<String, Object> body) {
+        java.util.Optional<PersonalTrainer> ptOpt = personalTrainerRepository.findById(idPt);
+        if (ptOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("errore", "Personal Trainer non trovato"));
+        }
+
+        Object idsObj = body.get("specializzazioneIds");
+        if (!(idsObj instanceof java.util.List)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Formato non valido per specializzazioneIds"));
+        }
+
+        @SuppressWarnings("unchecked")
+        java.util.List<Object> rawList = (java.util.List<Object>) idsObj;
+        if (rawList.size() > 5) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "Puoi selezionare fino a un massimo di 5 specializzazioni"));
+        }
+
+        java.util.Set<Long> idSet = new java.util.HashSet<>();
+        for (Object item : rawList) {
+            if (item instanceof Number) {
+                idSet.add(((Number) item).longValue());
+            }
+        }
+
+        java.util.List<Specializzazione> specializzazioni = specializzazioneRepository.findAllById(idSet);
+        PersonalTrainer pt = ptOpt.get();
+        pt.setSpecializzazioni(new java.util.HashSet<>(specializzazioni));
+        personalTrainerRepository.save(pt);
+
+        // Rispondi con l'elenco aggiornato
+        return ResponseEntity.ok(Map.of(
+            "messaggio", "Specializzazioni aggiornate con successo",
+            "specializzazioni", pt.getSpecializzazioni()
+        ));
+    }
+
+    @GetMapping("/personal-trainers/verificati")
+    public ResponseEntity<?> getPtVerificati(
+        @RequestParam(required = false) java.util.List<Long> specializzazioneIds,
+        @RequestParam(required = false) Long specializzazioneId,
+        @RequestParam(required = false) Integer etaMin,
+        @RequestParam(required = false) Integer etaMax
+    ) {
+        java.util.List<PersonalTrainer> verificati = personalTrainerRepository.findByVerificato(true);
+        java.util.List<Map<String, Object>> result = new java.util.ArrayList<>();
+        LocalDate oggi = LocalDate.now();
+
+        // Raggruppa gli ID delle specializzazioni da filtrare
+        java.util.Set<Long> targetSpecIds = new java.util.HashSet<>();
+        if (specializzazioneIds != null) {
+            targetSpecIds.addAll(specializzazioneIds);
+        }
+        if (specializzazioneId != null) {
+            targetSpecIds.add(specializzazioneId);
+        }
+
+        for (PersonalTrainer pt : verificati) {
+            Utente u = pt.getUtente();
+            if (u == null) continue;
+
+            // Filtro per specializzazioni se specificate (match su una delle specializzazioni selezionate)
+            if (!targetSpecIds.isEmpty()) {
+                boolean haSpec = pt.getSpecializzazioni() != null && pt.getSpecializzazioni().stream()
+                    .anyMatch(s -> targetSpecIds.contains(s.getId()));
+                if (!haSpec) {
+                    continue;
+                }
+            }
+
+            Integer eta = null;
+            if (u.getDataNascita() != null) {
+                eta = Period.between(u.getDataNascita(), oggi).getYears();
+            }
+
+            // Filtro età se specificato
+            if (etaMin != null && (eta == null || eta < etaMin)) {
+                continue;
+            }
+            if (etaMax != null && (eta == null || eta > etaMax)) {
+                continue;
+            }
+
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", u.getId());
+            map.put("idUtente", u.getId());
+            map.put("nome", u.getNome());
+            map.put("cognome", u.getCognome());
+            map.put("urlImmagineProfilo", u.getUrlImmagineProfilo() != null ? u.getUrlImmagineProfilo() : "");
+            map.put("eta", eta);
+            map.put("verificato", true);
+
+            // Specializzazioni del PT
+            java.util.List<Map<String, Object>> specs = new java.util.ArrayList<>();
+            if (pt.getSpecializzazioni() != null) {
+                for (Specializzazione s : pt.getSpecializzazioni()) {
+                    specs.add(Map.of("id", s.getId(), "nome", s.getNome()));
+                }
+                specs.sort((a, b) -> ((String) a.get("nome")).compareToIgnoreCase((String) b.get("nome")));
+            }
+            map.put("specializzazioni", specs);
+
+            result.add(map);
+        }
+
+        return ResponseEntity.ok(result);
+    }
 
     @Autowired
     private FileStorageService fileStorageService;
@@ -367,6 +497,17 @@ public class AuthController {
         }
         resp.put("personalTrainers", ptList);
         resp.put("haPersonalTrainerAttivo", !ptList.isEmpty());
+
+        // Se l'utente è un Personal Trainer, includi le sue specializzazioni
+        java.util.List<Map<String, Object>> specializzazioniList = new java.util.ArrayList<>();
+        if (utente.getPersonalTrainer() != null && utente.getPersonalTrainer().getSpecializzazioni() != null) {
+            for (Specializzazione s : utente.getPersonalTrainer().getSpecializzazioni()) {
+                specializzazioniList.add(Map.of("id", s.getId(), "nome", s.getNome()));
+            }
+            specializzazioniList.sort((a, b) -> ((String) a.get("nome")).compareToIgnoreCase((String) b.get("nome")));
+        }
+        resp.put("specializzazioni", specializzazioniList);
+
         return resp;
     }
 

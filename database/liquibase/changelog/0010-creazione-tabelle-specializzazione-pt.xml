@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="0010-creazione-tabelle-specializzazione-pt" author="rector">
+        <!-- Tabella catalogo specializzazione -->
+        <createTable tableName="specializzazione">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="nome" type="VARCHAR(100)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+        </createTable>
+
+        <!-- Tabella di associazione molti-a-molti tra personal trainer e specializzazione -->
+        <createTable tableName="personal_trainer_specializzazione">
+            <column name="id_personal_trainer" type="BIGINT">
+                <constraints primaryKey="true" nullable="false" foreignKeyName="fk_pt_spec_pt" referencedTableName="personal_trainer" referencedColumnNames="id_utente" deleteCascade="true"/>
+            </column>
+            <column name="id_specializzazione" type="BIGINT">
+                <constraints primaryKey="true" nullable="false" foreignKeyName="fk_pt_spec_spec" referencedTableName="specializzazione" referencedColumnNames="id" deleteCascade="true"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="personal_trainer_specializzazione" indexName="idx_pt_spec_pt">
+            <column name="id_personal_trainer"/>
+        </createIndex>
+        <createIndex tableName="personal_trainer_specializzazione" indexName="idx_pt_spec_spec">
+            <column name="id_specializzazione"/>
+        </createIndex>
+
+        <!-- Inserimento delle specializzazioni predefinite -->
+        <insert tableName="specializzazione">
+            <column name="nome" value="Aumento Massa Muscolare"/>
+        </insert>
+        <insert tableName="specializzazione">
+            <column name="nome" value="Dimagrimento &amp; Definizione"/>
+        </insert>
+        <insert tableName="specializzazione">
+            <column name="nome" value="Cardio &amp; Resistenza"/>
+        </insert>
+        <insert tableName="specializzazione">
+            <column name="nome" value="Allenamento Funzionale"/>
+        </insert>
+        <insert tableName="specializzazione">
+            <column name="nome" value="Ginnastica Posturale"/>
+        </insert>
+        <insert tableName="specializzazione">
+            <column name="nome" value="Calisthenics"/>
+        </insert>
+        <insert tableName="specializzazione">
+            <column name="nome" value="Powerlifting &amp; Forza"/>
+        </insert>
+        <insert tableName="specializzazione">
+            <column name="nome" value="Preparazione Atletica Sport-Specifica"/>
+        </insert>
+        <insert tableName="specializzazione">
+            <column name="nome" value="Tonificazione &amp; Benessere"/>
+        </insert>
+        <insert tableName="specializzazione">
+            <column name="nome" value="Mobilità &amp; Flessibilità"/>
+        </insert>
+    </changeSet>
+
+</databaseChangeLog>
