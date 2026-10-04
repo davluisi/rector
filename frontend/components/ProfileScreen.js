@@ -7,6 +7,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { config } from '../config';
 import ArchivioScreen from './ArchivioScreen';
 import AdminScreen from './AdminScreen';
+import AdminSpecializzazioniScreen from './AdminSpecializzazioniScreen';
 import PtSpecializzazioniScreen from './PtSpecializzazioniScreen';
 
 const getApiUrl = () => config.apiUrl;
@@ -64,10 +65,18 @@ const PasswordInput = React.memo(({ label, error, onChangeText, textKey }) => {
 });
 
 export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
-  const [currentScreen, setCurrentScreen] = useState('view'); // 'view' | 'edit' | 'password'
+  const [currentScreen, setCurrentScreen] = useState('view'); // 'view' | 'impostazioni' | 'account' | 'edit' | 'password' | 'archivio' | 'specializzazioni' | 'admin' | 'admin_specializzazioni'
   const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
   const [otpCode, setOtpCode] = useState('');
   const [showLogoutConfirmModal, setShowLogoutConfirmModal] = useState(false);
+
+  // Stati per modale attivazione/disattivazione profilo atleta
+  const [showAtletaModal, setShowAtletaModal] = useState(false);
+  const [isTogglingAtleta, setIsTogglingAtleta] = useState(false);
+  const [atletaModalError, setAtletaModalError] = useState('');
+
+  // Sotto-tab selezionato per AdminScreen ('stats' | 'verifiche')
+  const [adminInitialTab, setAdminInitialTab] = useState('stats');
 
   // Form states for Editing
   const [nome, setNome] = useState('');
@@ -222,69 +231,133 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
 
   // Animated offsets for slide transitions
   const viewTranslateX = useRef(new Animated.Value(0)).current;
+  const impostazioniTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const accountTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const editTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const passwordTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const archivioTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const specializzazioniTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
   const adminTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
+  const adminSpecializzazioniTranslateX = useRef(new Animated.Value(SCREEN_WIDTH)).current;
 
   // Run transitions when currentScreen changes
   useEffect(() => {
     Keyboard.dismiss();
     let targetView = 0;
+    let targetImpostazioni = SCREEN_WIDTH;
+    let targetAccount = SCREEN_WIDTH;
     let targetEdit = SCREEN_WIDTH;
     let targetPassword = SCREEN_WIDTH;
     let targetArchivio = SCREEN_WIDTH;
     let targetSpecializzazioni = SCREEN_WIDTH;
     let targetAdmin = SCREEN_WIDTH;
+    let targetAdminSpecializzazioni = SCREEN_WIDTH;
 
     if (currentScreen === 'view') {
       targetView = 0;
+      targetImpostazioni = SCREEN_WIDTH;
+      targetAccount = SCREEN_WIDTH;
       targetEdit = SCREEN_WIDTH;
       targetPassword = SCREEN_WIDTH;
       targetArchivio = SCREEN_WIDTH;
       targetSpecializzazioni = SCREEN_WIDTH;
       targetAdmin = SCREEN_WIDTH;
+      targetAdminSpecializzazioni = SCREEN_WIDTH;
+    } else if (currentScreen === 'impostazioni') {
+      targetView = -SCREEN_WIDTH;
+      targetImpostazioni = 0;
+      targetAccount = SCREEN_WIDTH;
+      targetEdit = SCREEN_WIDTH;
+      targetPassword = SCREEN_WIDTH;
+      targetArchivio = SCREEN_WIDTH;
+      targetSpecializzazioni = SCREEN_WIDTH;
+      targetAdmin = SCREEN_WIDTH;
+      targetAdminSpecializzazioni = SCREEN_WIDTH;
+    } else if (currentScreen === 'account') {
+      targetView = -SCREEN_WIDTH;
+      targetImpostazioni = -SCREEN_WIDTH;
+      targetAccount = 0;
+      targetEdit = SCREEN_WIDTH;
+      targetPassword = SCREEN_WIDTH;
+      targetArchivio = SCREEN_WIDTH;
+      targetSpecializzazioni = SCREEN_WIDTH;
+      targetAdmin = SCREEN_WIDTH;
+      targetAdminSpecializzazioni = SCREEN_WIDTH;
     } else if (currentScreen === 'edit') {
       targetView = -SCREEN_WIDTH;
+      targetImpostazioni = -SCREEN_WIDTH;
+      targetAccount = SCREEN_WIDTH;
       targetEdit = 0;
       targetPassword = SCREEN_WIDTH;
       targetArchivio = SCREEN_WIDTH;
       targetSpecializzazioni = SCREEN_WIDTH;
       targetAdmin = SCREEN_WIDTH;
+      targetAdminSpecializzazioni = SCREEN_WIDTH;
     } else if (currentScreen === 'password') {
       targetView = -SCREEN_WIDTH;
+      targetImpostazioni = -SCREEN_WIDTH;
+      targetAccount = -SCREEN_WIDTH;
       targetEdit = -SCREEN_WIDTH;
       targetPassword = 0;
       targetArchivio = SCREEN_WIDTH;
       targetSpecializzazioni = SCREEN_WIDTH;
       targetAdmin = SCREEN_WIDTH;
+      targetAdminSpecializzazioni = SCREEN_WIDTH;
     } else if (currentScreen === 'archivio') {
       targetView = -SCREEN_WIDTH;
+      targetImpostazioni = SCREEN_WIDTH;
+      targetAccount = SCREEN_WIDTH;
       targetEdit = SCREEN_WIDTH;
       targetPassword = SCREEN_WIDTH;
       targetArchivio = 0;
       targetSpecializzazioni = SCREEN_WIDTH;
       targetAdmin = SCREEN_WIDTH;
+      targetAdminSpecializzazioni = SCREEN_WIDTH;
     } else if (currentScreen === 'specializzazioni') {
       targetView = -SCREEN_WIDTH;
+      targetImpostazioni = SCREEN_WIDTH;
+      targetAccount = SCREEN_WIDTH;
       targetEdit = SCREEN_WIDTH;
       targetPassword = SCREEN_WIDTH;
       targetArchivio = SCREEN_WIDTH;
       targetSpecializzazioni = 0;
       targetAdmin = SCREEN_WIDTH;
+      targetAdminSpecializzazioni = SCREEN_WIDTH;
     } else if (currentScreen === 'admin') {
       targetView = -SCREEN_WIDTH;
+      targetImpostazioni = SCREEN_WIDTH;
+      targetAccount = SCREEN_WIDTH;
       targetEdit = SCREEN_WIDTH;
       targetPassword = SCREEN_WIDTH;
       targetArchivio = SCREEN_WIDTH;
       targetSpecializzazioni = SCREEN_WIDTH;
       targetAdmin = 0;
+      targetAdminSpecializzazioni = SCREEN_WIDTH;
+    } else if (currentScreen === 'admin_specializzazioni') {
+      targetView = -SCREEN_WIDTH;
+      targetImpostazioni = SCREEN_WIDTH;
+      targetAccount = SCREEN_WIDTH;
+      targetEdit = SCREEN_WIDTH;
+      targetPassword = SCREEN_WIDTH;
+      targetArchivio = SCREEN_WIDTH;
+      targetSpecializzazioni = SCREEN_WIDTH;
+      targetAdmin = SCREEN_WIDTH;
+      targetAdminSpecializzazioni = 0;
     }
 
     Animated.parallel([
       Animated.timing(viewTranslateX, {
         toValue: targetView,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(impostazioniTranslateX, {
+        toValue: targetImpostazioni,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(accountTranslateX, {
+        toValue: targetAccount,
         duration: 250,
         useNativeDriver: true,
       }),
@@ -310,6 +383,11 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
       }),
       Animated.timing(adminTranslateX, {
         toValue: targetAdmin,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(adminSpecializzazioniTranslateX, {
+        toValue: targetAdminSpecializzazioni,
         duration: 250,
         useNativeDriver: true,
       }),
@@ -663,7 +741,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
 
       setSuccessMessage('Password aggiornata con successo');
       setTimeout(() => {
-        setCurrentScreen('edit');
+        setCurrentScreen(previousPasswordScreen || 'edit');
         setSubmittedPassword(false);
         setErrorMessage('');
         setSuccessMessage('');
@@ -678,8 +756,55 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
     }
   };
 
+  const [previousPasswordScreen, setPreviousPasswordScreen] = useState('edit');
+
+  const handleOpenPassword = (fromScreen = 'edit') => {
+    setPreviousPasswordScreen(fromScreen);
+    setCurrentScreen('password');
+  };
+
+  const handleToggleProfiloAtleta = async () => {
+    setIsTogglingAtleta(true);
+    setAtletaModalError('');
+    try {
+      const response = await fetch(`${getApiUrl()}/api/auth/pt/${user.id}/toggle-profilo-atleta`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        if (data.haAbbonamentoAttivo || data.errore) {
+          setAtletaModalError(data.errore || 'Operazione non consentita');
+        } else {
+          setAtletaModalError('Errore durante l\'aggiornamento del profilo');
+        }
+        return;
+      }
+
+      if (data.user && onUpdateUser) {
+        onUpdateUser(data.user);
+      }
+      setShowAtletaModal(false);
+      setAtletaModalError('');
+    } catch (err) {
+      console.error(err);
+      setAtletaModalError('Impossibile connettersi al server');
+    } finally {
+      setIsTogglingAtleta(false);
+    }
+  };
+
   const handleCancel = () => {
-    setCurrentScreen('view');
+    const isPt = user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi';
+    if (isPt) {
+      setCurrentScreen('impostazioni');
+    } else {
+      setCurrentScreen('view');
+    }
     setSubmitted(false);
     setModifiedFields({});
     setErrorMessage('');
@@ -687,7 +812,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   };
 
   const handleCancelPassword = () => {
-    setCurrentScreen('edit');
+    setCurrentScreen(previousPasswordScreen || 'edit');
     setSubmittedPassword(false);
     setErrorMessage('');
     setSuccessMessage('');
@@ -734,7 +859,12 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
                 <Ionicons name="person" size={48} color="#A1A1AA" />
               )}
             </View>
-            <Text className="text-white text-xl font-bold">{user.nome} {user.cognome}</Text>
+            <View className="flex-row items-center justify-center flex-wrap gap-1.5">
+              <Text className="text-white text-xl font-bold">{user.nome} {user.cognome}</Text>
+              {(user.admin || user.isAdmin) && (
+                <Text className="text-[#FFB430] text-sm font-semibold">(admin)</Text>
+              )}
+            </View>
           </View>
 
           {/* Personal Trainer Archive Button */}
@@ -760,27 +890,64 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             </>
           )}
 
-          {/* Admin Panel Button */}
+          {/* Admin Buttons: Statistiche, Personal Trainer e Specializzazioni */}
           {(user.admin || user.isAdmin) && (
-            <TouchableOpacity 
-              className="bg-[#FFB430]/15 border border-[#FFB430]/40 h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3 shadow-sm"
-              activeOpacity={0.7}
-              onPress={() => setCurrentScreen('admin')}
-            >
-              <Ionicons name="shield-checkmark" size={18} color="#FFB430" />
-              <Text className="text-[#FFB430] text-[15px] font-bold">Pannello Admin</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity 
+                className="bg-[#FFB430]/15 border border-[#FFB430]/40 h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3 shadow-sm"
+                activeOpacity={0.7}
+                onPress={() => {
+                  setAdminInitialTab('stats');
+                  setCurrentScreen('admin');
+                }}
+              >
+                <Ionicons name="bar-chart-outline" size={18} color="#FFB430" />
+                <Text className="text-[#FFB430] text-[15px] font-bold">Statistiche</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                className="bg-[#FFB430]/15 border border-[#FFB430]/40 h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3 shadow-sm"
+                activeOpacity={0.7}
+                onPress={() => {
+                  setAdminInitialTab('verifiche');
+                  setCurrentScreen('admin');
+                }}
+              >
+                <Ionicons name="people-outline" size={18} color="#FFB430" />
+                <Text className="text-[#FFB430] text-[15px] font-bold">Personal Trainer</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                className="bg-[#FFB430]/15 border border-[#FFB430]/40 h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3 shadow-sm"
+                activeOpacity={0.7}
+                onPress={() => setCurrentScreen('admin_specializzazioni')}
+              >
+                <Ionicons name="ribbon-outline" size={18} color="#FFB430" />
+                <Text className="text-[#FFB430] text-[15px] font-bold">Specializzazioni</Text>
+              </TouchableOpacity>
+            </>
           )}
 
-          {/* Account Settings / Actions */}
-          <TouchableOpacity 
-            className="bg-inputDark border border-inputBorder h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3"
-            activeOpacity={0.7}
-            onPress={() => setCurrentScreen('edit')}
-          >
-            <Ionicons name="person-outline" size={18} color="#FFFFFF" />
-            <Text className="text-zinc-300 text-[15px] font-bold">Profilo</Text>
-          </TouchableOpacity>
+          {/* Impostazioni (per PT / entrambi) oppure Profilo (per Atleta semplice) */}
+          {(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') ? (
+            <TouchableOpacity 
+              className="bg-inputDark border border-inputBorder h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3"
+              activeOpacity={0.7}
+              onPress={() => setCurrentScreen('impostazioni')}
+            >
+              <Ionicons name="settings-outline" size={18} color="#FFFFFF" />
+              <Text className="text-zinc-300 text-[15px] font-bold">Impostazioni</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              className="bg-inputDark border border-inputBorder h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3"
+              activeOpacity={0.7}
+              onPress={() => setCurrentScreen('edit')}
+            >
+              <Ionicons name="person-outline" size={18} color="#FFFFFF" />
+              <Text className="text-zinc-300 text-[15px] font-bold">Profilo</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Logout Button */}
           <TouchableOpacity 
@@ -876,15 +1043,17 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
               <Text className="text-white text-base font-semibold mt-1.5">{cognome || 'N/D'}</Text>
             </TouchableOpacity>
 
-            {/* Email */}
-            <TouchableOpacity 
-              onPress={() => { setEditingField('email'); setEditingValue(email); }} 
-              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
-              activeOpacity={0.7}
-            >
-              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Email</Text>
-              <Text className="text-white text-base font-semibold mt-1.5">{email || 'N/D'}</Text>
-            </TouchableOpacity>
+            {/* Email (visibile qui solo per utente atleta semplice; per PT ed entrambi è in Account) */}
+            {!(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') && (
+              <TouchableOpacity 
+                onPress={() => { setEditingField('email'); setEditingValue(email); }} 
+                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+                activeOpacity={0.7}
+              >
+                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Email</Text>
+                <Text className="text-white text-base font-semibold mt-1.5">{email || 'N/D'}</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Data di nascita */}
             <TouchableOpacity 
@@ -932,241 +1101,19 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
               </TouchableOpacity>
             )}
 
-            {/* Password Row */}
-            <TouchableOpacity 
-              onPress={() => setCurrentScreen('password')} 
-              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
-              activeOpacity={0.7}
-            >
-              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Password</Text>
-              <Text className="text-white text-base font-semibold mt-1.5">••••••••</Text>
-            </TouchableOpacity>
+            {/* Password Row (visibile qui solo per utente atleta semplice; per PT ed entrambi è in Account) */}
+            {!(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') && (
+              <TouchableOpacity 
+                onPress={() => handleOpenPassword('edit')} 
+                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+                activeOpacity={0.7}
+              >
+                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Password</Text>
+                <Text className="text-white text-base font-semibold mt-1.5">••••••••</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </ScrollView>
-
-        {/* SUB-PAGE OVERLAY FOR SINGLE FIELD EDITING */}
-        {editingField && (
-          <Animated.View
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              transform: [{ translateX: subPageTranslateX }],
-              backgroundColor: '#0D0D11',
-              zIndex: 100,
-            }}
-          >
-            {/* Header locale per Sub-page dinamico */}
-            <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
-              <View className="w-10 items-start">
-                <TouchableOpacity onPress={handleCancelSubPage} className="p-1">
-                  <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-              <View className="flex-1 items-center">
-                <Text className="text-lg font-bold text-white tracking-tight">{getSubPageTitle()}</Text>
-              </View>
-              <View className="w-10" />
-            </View>
-
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              className="flex-1"
-            >
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
-                keyboardShouldPersistTaps="handled"
-              >
-                <View className="mt-2" />
-
-                {/* Space reserved for Error/Success Message banner */}
-                <View className="h-[52px] mb-6 w-full justify-center items-start">
-                  {errorMessage && currentScreen === 'edit' && editingField ? (
-                    <View className="bg-red-500/10 border border-red-500/20 px-4 py-2.5 rounded-xl self-start">
-                      <Text className="text-red-500 text-xs font-semibold">{errorMessage}</Text>
-                    </View>
-                  ) : successMessage && currentScreen === 'edit' && editingField ? (
-                    <View className="bg-accentCyan/10 border border-accentCyan/20 px-4 py-2.5 rounded-xl self-start">
-                      <Text className="text-accentCyan text-xs font-semibold">{successMessage}</Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                {/* Render input depending on the editing field */}
-                {editingField === 'nome' && (
-                  <View className="mb-6 w-full">
-                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Nome</Text>
-                    <TextInput
-                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                      value={editingValue}
-                      onChangeText={setEditingValue}
-                      autoCapitalize="words"
-                      scrollEnabled={false}
-                      autoFocus
-                    />
-                  </View>
-                )}
-
-                {editingField === 'cognome' && (
-                  <View className="mb-6 w-full">
-                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Cognome</Text>
-                    <TextInput
-                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                      value={editingValue}
-                      onChangeText={setEditingValue}
-                      autoCapitalize="words"
-                      scrollEnabled={false}
-                      autoFocus
-                    />
-                  </View>
-                )}
-
-                {editingField === 'email' && (
-                  isVerifyingEmailOtp ? (
-                    <View className="w-full">
-                      <Text className="text-zinc-400 text-sm mb-6 text-center leading-relaxed">
-                        Abbiamo inviato un codice OTP di 4 cifre alla nuova email:{"\n"}
-                        <Text className="text-white font-bold">{editingValue.trim().toLowerCase()}</Text>
-                      </Text>
-
-                      {/* OTP Input */}
-                      <View className="mb-6 w-full">
-                        <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Codice di verifica</Text>
-                        <TextInput
-                          className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-lg font-bold text-center tracking-[10px] focus:border-accentCyan ${
-                            submitted && !otpCode.trim() ? 'border-red-500' : 'border-inputBorder'
-                          }`}
-                          value={otpCode}
-                          onChangeText={(val) => setOtpCode(val.replace(/[^0-9]/g, '').slice(0, 4))}
-                          keyboardType="number-pad"
-                          maxLength={4}
-                          placeholder="0000"
-                          placeholderTextColor="#52525B"
-                          scrollEnabled={false}
-                          autoFocus
-                        />
-                      </View>
-
-                      <TouchableOpacity 
-                        className="border border-borderDark h-12 rounded-xl justify-center items-center mb-2" 
-                        activeOpacity={0.8}
-                        onPress={handleResendEmailOtp}
-                      >
-                        <Text className="text-zinc-400 text-sm font-bold">Invia di nuovo</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ) : (
-                    <View className="mb-6 w-full">
-                      <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
-                      <TextInput
-                        className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                        value={editingValue}
-                        onChangeText={setEditingValue}
-                        keyboardType="email-address"
-                        autoCapitalize="none"
-                        scrollEnabled={false}
-                        autoFocus
-                      />
-                    </View>
-                  )
-                )}
-
-                {editingField === 'dataNascita' && (
-                  <View className="mb-6 w-full">
-                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Data di nascita (GG/MM/AAAA)</Text>
-                    <TextInput
-                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                      value={editingValue}
-                      onChangeText={(text) => {
-                        let formatted = text.replace(/[^0-9]/g, '');
-                        if (formatted.length > 2) {
-                          formatted = formatted.substring(0, 2) + '/' + formatted.substring(2);
-                        }
-                        if (formatted.length > 5) {
-                          formatted = formatted.substring(0, 5) + '/' + formatted.substring(5, 9);
-                        }
-                        setEditingValue(formatted);
-                      }}
-                      placeholder="GG/MM/AAAA"
-                      placeholderTextColor="#52525B"
-                      keyboardType="number-pad"
-                      maxLength={10}
-                      scrollEnabled={false}
-                      autoFocus
-                    />
-                  </View>
-                )}
-
-                {editingField === 'peso' && (
-                  <View className="mb-6 w-full">
-                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Peso (kg)</Text>
-                    <TextInput
-                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                      value={editingValue}
-                      onChangeText={setEditingValue}
-                      keyboardType="decimal-pad"
-                      scrollEnabled={false}
-                      autoFocus
-                    />
-                  </View>
-                )}
-
-                {editingField === 'altezza' && (
-                  <View className="mb-6 w-full">
-                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Altezza (cm)</Text>
-                    <TextInput
-                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
-                      value={editingValue}
-                      onChangeText={setEditingValue}
-                      keyboardType="numeric"
-                      scrollEnabled={false}
-                      autoFocus
-                    />
-                  </View>
-                )}
-
-                {editingField === 'genere' && (
-                  <View className="mb-6 w-full">
-                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Genere</Text>
-                    <View className="flex-row justify-between gap-3">
-                      {['MASCHIO', 'FEMMINA', 'ALTRO'].map((g) => {
-                        const label = g === 'MASCHIO' ? 'Maschio' : g === 'FEMMINA' ? 'Femmina' : 'Altro';
-                        const isSelected = editingValue === g;
-                        return (
-                          <TouchableOpacity
-                            key={g}
-                            onPress={() => setEditingValue(isSelected ? null : g)}
-                            className={`flex-1 py-3 rounded-xl border items-center justify-center ${
-                              isSelected ? 'bg-white border-white' : 'bg-inputDark border-inputBorder'
-                            }`}
-                          >
-                            <Text className={`text-xs font-bold ${isSelected ? 'text-zinc-950' : 'text-zinc-400'}`}>
-                              {label}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
-                    </View>
-                  </View>
-                )}
-
-                {/* Save Button for Sub-page */}
-                <TouchableOpacity 
-                  className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
-                  activeOpacity={0.8}
-                  onPress={isVerifyingEmailOtp ? handleVerifyEmailOtp : handleSaveField}
-                >
-                  <Text className="text-zinc-950 text-[15px] font-bold">
-                    {isVerifyingEmailOtp ? 'Verifica e Salva' : 'Salva'}
-                  </Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </KeyboardAvoidingView>
-          </Animated.View>
-        )}
       </Animated.View>
 
       {/* 3. PASSWORD SCREEN */}
@@ -1304,6 +1251,180 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
         </Animated.View>
       )}
 
+      {/* 1b. IMPOSTAZIONI SCREEN (Personal Trainer) */}
+      {(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: [{ translateX: impostazioniTranslateX }],
+          }}
+        >
+          {/* Header locale per Impostazioni */}
+          <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+            <View className="w-10 items-start">
+              <TouchableOpacity onPress={() => setCurrentScreen('view')} className="p-1">
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <View className="flex-1 items-center">
+              <Text className="text-lg font-bold text-white tracking-tight">Impostazioni</Text>
+            </View>
+            <View className="w-10" />
+          </View>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+          >
+            <View className="mt-2" />
+
+            <View className="w-full gap-3.5 mb-6">
+              {/* Voce Profilo */}
+              <TouchableOpacity
+                onPress={() => setCurrentScreen('edit')}
+                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-row items-center justify-between"
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <View className="w-10 h-10 rounded-xl bg-[#202026] justify-center items-center border border-borderDark/60">
+                    <Ionicons name="person-outline" size={20} color="#FFFFFF" />
+                  </View>
+                  <View>
+                    <Text className="text-white text-base font-semibold">Profilo</Text>
+                    <Text className="text-zinc-500 text-xs mt-0.5">Dati personali</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+
+              {/* Voce Account */}
+              <TouchableOpacity
+                onPress={() => setCurrentScreen('account')}
+                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-row items-center justify-between"
+                activeOpacity={0.7}
+              >
+                <View className="flex-row items-center gap-3">
+                  <View className="w-10 h-10 rounded-xl bg-[#202026] justify-center items-center border border-borderDark/60">
+                    <Ionicons name="shield-outline" size={20} color="#FFFFFF" />
+                  </View>
+                  <View>
+                    <Text className="text-white text-base font-semibold">Account</Text>
+                    <Text className="text-zinc-500 text-xs mt-0.5">Email, password e profilo atleta</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </Animated.View>
+      )}
+
+      {/* 1c. ACCOUNT SCREEN (Personal Trainer) */}
+      {(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: [{ translateX: accountTranslateX }],
+          }}
+        >
+          {/* Header locale per Account */}
+          <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+            <View className="w-10 items-start">
+              <TouchableOpacity onPress={() => setCurrentScreen('impostazioni')} className="p-1">
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <View className="flex-1 items-center">
+              <Text className="text-lg font-bold text-white tracking-tight">Account</Text>
+            </View>
+            <View className="w-10" />
+          </View>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+          >
+            <View className="mt-2" />
+
+            {/* Credenziali di accesso */}
+            <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-3 px-1">Credenziali di accesso</Text>
+            <View className="w-full gap-3.5 mb-6">
+              {/* Email */}
+              <TouchableOpacity 
+                onPress={() => { setEditingField('email'); setEditingValue(email); }} 
+                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+                activeOpacity={0.7}
+              >
+                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Email</Text>
+                <Text className="text-white text-base font-semibold mt-1.5">{email || 'N/D'}</Text>
+              </TouchableOpacity>
+
+              {/* Password */}
+              <TouchableOpacity 
+                onPress={() => handleOpenPassword('account')} 
+                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+                activeOpacity={0.7}
+              >
+                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Password</Text>
+                <Text className="text-white text-base font-semibold mt-1.5">••••••••</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Profilo da Atleta */}
+            <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-3 px-1">Profilo da atleta</Text>
+            <View className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-5 mb-6">
+              <View className="flex-row items-center gap-3 mb-3">
+                <View className="w-10 h-10 rounded-xl bg-accentCyan/10 border border-accentCyan/20 justify-center items-center">
+                  <Ionicons name="barbell-outline" size={20} color="#00F0FF" />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-white text-base font-semibold">
+                    {user.ruolo === 'entrambi' ? 'Attivo' : 'Non attivo'}
+                  </Text>
+                  <Text className="text-zinc-400 text-xs mt-0.5">
+                    {user.ruolo === 'entrambi'
+                      ? 'Puoi ricevere piani di allenamento da altri personal trainer.'
+                      : 'Attiva il profilo da atleta per farti seguire da altri personal trainer.'}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                className={`h-12 rounded-xl justify-center items-center flex-row gap-2 mt-2 ${
+                  user.ruolo === 'entrambi'
+                    ? 'bg-accentPink/10 border border-accentPink/30'
+                    : 'bg-accentCyan/15 border border-accentCyan/40'
+                }`}
+                activeOpacity={0.8}
+                onPress={() => {
+                  setAtletaModalError('');
+                  setShowAtletaModal(true);
+                }}
+              >
+                <Ionicons
+                  name={user.ruolo === 'entrambi' ? 'close-circle-outline' : 'checkmark-circle-outline'}
+                  size={18}
+                  color={user.ruolo === 'entrambi' ? '#A0132C' : '#00F0FF'}
+                />
+                <Text
+                  className={`text-[15px] font-bold ${
+                    user.ruolo === 'entrambi' ? 'text-accentPink' : 'text-accentCyan'
+                  }`}
+                >
+                  {user.ruolo === 'entrambi' ? 'Disattiva' : 'Attiva'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </Animated.View>
+      )}
+
       {/* 5. ADMIN SCREEN */}
       {(user.admin || user.isAdmin) && (
         <Animated.View
@@ -1318,10 +1439,140 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
         >
           <AdminScreen
             user={user}
+            initialTab={adminInitialTab}
             onBack={() => setCurrentScreen('view')}
           />
         </Animated.View>
       )}
+
+      {/* 5b. ADMIN SPECIALIZZAZIONI SCREEN */}
+      {(user.admin || user.isAdmin) && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: [{ translateX: adminSpecializzazioniTranslateX }],
+          }}
+        >
+          <AdminSpecializzazioniScreen
+            user={user}
+            onBack={() => setCurrentScreen('view')}
+          />
+        </Animated.View>
+      )}
+
+      {/* MODALE ATTIVAZIONE / DISATTIVAZIONE PROFILO ATLETA */}
+      <Modal
+        visible={showAtletaModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isTogglingAtleta) {
+            setShowAtletaModal(false);
+            setAtletaModalError('');
+          }
+        }}
+      >
+        <View className="flex-1 justify-center items-center bg-black/80 px-6">
+          <View className="w-full max-w-sm bg-[#16161A] border border-[#282832] rounded-3xl p-6 items-center shadow-2xl">
+            <View className={`w-14 h-14 rounded-2xl justify-center items-center mb-4 ${
+              atletaModalError
+                ? 'bg-red-500/10 border border-red-500/20'
+                : user.ruolo === 'entrambi'
+                ? 'bg-accentPink/10 border border-accentPink/20'
+                : 'bg-accentCyan/10 border border-accentCyan/20'
+            }`}>
+              <Ionicons
+                name={
+                  atletaModalError
+                    ? 'alert-circle-outline'
+                    : user.ruolo === 'entrambi'
+                    ? 'information-circle-outline'
+                    : 'barbell-outline'
+                }
+                size={28}
+                color={
+                  atletaModalError
+                    ? '#EF4444'
+                    : user.ruolo === 'entrambi'
+                    ? '#A0132C'
+                    : '#00F0FF'
+                }
+              />
+            </View>
+
+            <Text className="text-white text-lg font-bold text-center">
+              {atletaModalError
+                ? 'Attenzione'
+                : user.ruolo === 'entrambi'
+                ? 'Disattiva profilo da atleta'
+                : 'Attiva profilo da atleta'}
+            </Text>
+
+            <Text className="text-zinc-300 text-sm text-center mt-3 leading-relaxed">
+              {atletaModalError ? (
+                atletaModalError
+              ) : user.ruolo === 'entrambi' ? (
+                'Disattivando il profilo da atleta perderai la possibilità di ricevere piani di allenamento da altri personal trainer, potrai comunque riattivarlo in qualsiasi momento.'
+              ) : (
+                'Attivando il profilo da atleta potrai usufruire di tutte le funzioni dell\'app. Potrai utilizzarla sia come personal trainer sia come utente generico (atleta) direttamente dallo stesso account.'
+              )}
+            </Text>
+
+            {/* Pulsanti modale */}
+            {atletaModalError ? (
+              <View className="w-full mt-6">
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setShowAtletaModal(false);
+                    setAtletaModalError('');
+                  }}
+                  className="w-full h-12 rounded-xl bg-[#202026] border border-[#2D2D38] justify-center items-center"
+                >
+                  <Text className="text-white font-semibold text-sm">Chiudi</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View className="flex-row gap-3 w-full mt-6">
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  disabled={isTogglingAtleta}
+                  onPress={() => {
+                    setShowAtletaModal(false);
+                    setAtletaModalError('');
+                  }}
+                  className="flex-1 h-12 rounded-xl bg-[#202026] border border-[#2D2D38] justify-center items-center"
+                >
+                  <Text className="text-zinc-300 font-semibold text-sm">Annulla</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  disabled={isTogglingAtleta}
+                  onPress={handleToggleProfiloAtleta}
+                  className={`flex-1 h-12 rounded-xl justify-center items-center ${
+                    user.ruolo === 'entrambi'
+                      ? 'bg-accentPink shadow-md shadow-accentPink/20'
+                      : 'bg-white shadow-md shadow-white/10'
+                  }`}
+                >
+                  <Text
+                    className={`font-bold text-sm ${
+                      user.ruolo === 'entrambi' ? 'text-white' : 'text-zinc-950'
+                    }`}
+                  >
+                    {isTogglingAtleta ? 'Attendi...' : 'Conferma'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* MODAL DI CONFERMA LOGOUT */}
       <Modal
@@ -1366,6 +1617,230 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
           </View>
         </View>
       </Modal>
+
+      {/* SUB-PAGE OVERLAY FOR SINGLE FIELD EDITING (Condiviso tra Profilo e Account) */}
+      {editingField && (
+        <Animated.View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            transform: [{ translateX: subPageTranslateX }],
+            backgroundColor: '#0D0D11',
+            zIndex: 100,
+          }}
+        >
+          {/* Header locale per Sub-page dinamico */}
+          <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+            <View className="w-10 items-start">
+              <TouchableOpacity onPress={handleCancelSubPage} className="p-1">
+                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+            <View className="flex-1 items-center">
+              <Text className="text-lg font-bold text-white tracking-tight">{getSubPageTitle()}</Text>
+            </View>
+            <View className="w-10" />
+          </View>
+
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            className="flex-1"
+          >
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <View className="mt-2" />
+
+              {/* Space reserved for Error/Success Message banner */}
+              <View className="h-[52px] mb-6 w-full justify-center items-start">
+                {errorMessage && (currentScreen === 'edit' || currentScreen === 'account') && editingField ? (
+                  <View className="bg-red-500/10 border border-red-500/20 px-4 py-2.5 rounded-xl self-start">
+                    <Text className="text-red-500 text-xs font-semibold">{errorMessage}</Text>
+                  </View>
+                ) : successMessage && (currentScreen === 'edit' || currentScreen === 'account') && editingField ? (
+                  <View className="bg-accentCyan/10 border border-accentCyan/20 px-4 py-2.5 rounded-xl self-start">
+                    <Text className="text-accentCyan text-xs font-semibold">{successMessage}</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              {/* Render input depending on the editing field */}
+              {editingField === 'nome' && (
+                <View className="mb-6 w-full">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Nome</Text>
+                  <TextInput
+                    className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                    value={editingValue}
+                    onChangeText={setEditingValue}
+                    autoCapitalize="words"
+                    scrollEnabled={false}
+                    autoFocus
+                  />
+                </View>
+              )}
+
+              {editingField === 'cognome' && (
+                <View className="mb-6 w-full">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Cognome</Text>
+                  <TextInput
+                    className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                    value={editingValue}
+                    onChangeText={setEditingValue}
+                    autoCapitalize="words"
+                    scrollEnabled={false}
+                    autoFocus
+                  />
+                </View>
+              )}
+
+              {editingField === 'email' && (
+                isVerifyingEmailOtp ? (
+                  <View className="w-full">
+                    <Text className="text-zinc-400 text-sm mb-6 text-center leading-relaxed">
+                      Abbiamo inviato un codice OTP di 4 cifre alla nuova email:{"\n"}
+                      <Text className="text-white font-bold">{editingValue.trim().toLowerCase()}</Text>
+                    </Text>
+
+                    {/* OTP Input */}
+                    <View className="mb-6 w-full">
+                      <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Codice di verifica</Text>
+                      <TextInput
+                        className={`bg-inputDark border rounded-xl px-4 py-0 h-12 color-white text-lg font-bold text-center tracking-[10px] focus:border-accentCyan ${
+                          submitted && !otpCode.trim() ? 'border-red-500' : 'border-inputBorder'
+                        }`}
+                        value={otpCode}
+                        onChangeText={(val) => setOtpCode(val.replace(/[^0-9]/g, '').slice(0, 4))}
+                        keyboardType="number-pad"
+                        maxLength={4}
+                        placeholder="0000"
+                        placeholderTextColor="#52525B"
+                        scrollEnabled={false}
+                        autoFocus
+                      />
+                    </View>
+
+                    <TouchableOpacity 
+                      className="border border-borderDark h-12 rounded-xl justify-center items-center mb-2" 
+                      activeOpacity={0.8}
+                      onPress={handleResendEmailOtp}
+                    >
+                      <Text className="text-zinc-400 text-sm font-bold">Invia di nuovo</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View className="mb-6 w-full">
+                    <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Email</Text>
+                    <TextInput
+                      className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                      value={editingValue}
+                      onChangeText={setEditingValue}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      scrollEnabled={false}
+                      autoFocus
+                    />
+                  </View>
+                )
+              )}
+
+              {editingField === 'dataNascita' && (
+                <View className="mb-6 w-full">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Data di nascita (GG/MM/AAAA)</Text>
+                  <TextInput
+                    className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                    value={editingValue}
+                    onChangeText={(text) => {
+                      let formatted = text.replace(/[^0-9]/g, '');
+                      if (formatted.length > 2) {
+                        formatted = formatted.substring(0, 2) + '/' + formatted.substring(2);
+                      }
+                      if (formatted.length > 5) {
+                        formatted = formatted.substring(0, 5) + '/' + formatted.substring(5, 9);
+                      }
+                      setEditingValue(formatted);
+                    }}
+                    placeholder="GG/MM/AAAA"
+                    placeholderTextColor="#52525B"
+                    keyboardType="number-pad"
+                    maxLength={10}
+                    scrollEnabled={false}
+                    autoFocus
+                  />
+                </View>
+              )}
+
+              {editingField === 'peso' && (
+                <View className="mb-6 w-full">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Peso (kg)</Text>
+                  <TextInput
+                    className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                    value={editingValue}
+                    onChangeText={setEditingValue}
+                    keyboardType="decimal-pad"
+                    scrollEnabled={false}
+                    autoFocus
+                  />
+                </View>
+              )}
+
+              {editingField === 'altezza' && (
+                <View className="mb-6 w-full">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Altezza (cm)</Text>
+                  <TextInput
+                    className="bg-inputDark border border-inputBorder rounded-xl px-4 py-0 h-12 color-white text-[15px] focus:border-accentCyan"
+                    value={editingValue}
+                    onChangeText={setEditingValue}
+                    keyboardType="numeric"
+                    scrollEnabled={false}
+                    autoFocus
+                  />
+                </View>
+              )}
+
+              {editingField === 'genere' && (
+                <View className="mb-6 w-full">
+                  <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-2">Genere</Text>
+                  <View className="flex-row justify-between gap-3">
+                    {['MASCHIO', 'FEMMINA', 'ALTRO'].map((g) => {
+                      const label = g === 'MASCHIO' ? 'Maschio' : g === 'FEMMINA' ? 'Femmina' : 'Altro';
+                      const isSelected = editingValue === g;
+                      return (
+                        <TouchableOpacity
+                          key={g}
+                          onPress={() => setEditingValue(isSelected ? null : g)}
+                          className={`flex-1 py-3 rounded-xl border items-center justify-center ${
+                            isSelected ? 'bg-white border-white' : 'bg-inputDark border-inputBorder'
+                          }`}
+                        >
+                          <Text className={`text-xs font-bold ${isSelected ? 'text-zinc-950' : 'text-zinc-400'}`}>
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Save Button for Sub-page */}
+              <TouchableOpacity 
+                className="bg-white h-12 rounded-xl justify-center items-center mt-2 shadow-lg shadow-white/5" 
+                activeOpacity={0.8}
+                onPress={isVerifyingEmailOtp ? handleVerifyEmailOtp : handleSaveField}
+              >
+                <Text className="text-zinc-950 text-[15px] font-bold">
+                  {isVerifyingEmailOtp ? 'Verifica e Salva' : 'Salva'}
+                </Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </Animated.View>
+      )}
 
     </View>
   );

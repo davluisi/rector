@@ -8,4 +8,7 @@ import java.util.List;
 @Repository
 public interface SpecializzazioneRepository extends JpaRepository<Specializzazione, Long> {
     List<Specializzazione> findAllByOrderByNomeAsc();
+    java.util.Optional<Specializzazione> findByNomeIgnoreCase(String nome);
+    boolean existsByNomeIgnoreCase(String nome);
+    boolean existsByNomeIgnoreCaseAndIdNot(String nome, Long id);
 }

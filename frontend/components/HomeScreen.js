@@ -5,11 +5,26 @@ import HeroSection from './HeroSection';
 import FilterModal from './FilterModal';
 import RatingStars from './RatingStars';
 import ReviewModal from './ReviewModal';
+import PtDetailScreen from './PtDetailScreen';
+import GestioneAbbonamentoScreen from './GestioneAbbonamentoScreen';
 import { config } from '../config';
 
-export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile }) {
-  // L'utente è atleta se ha ruolo 'utente_atleta' o 'entrambi', oppure se non è loggato
-  const isAtleta = !user || user.ruolo === 'utente_atleta' || user.ruolo === 'entrambi' || (!user.ruolo && !user.isPt);
+export default function HomeScreen({ 
+  user, 
+  activeHomeRole, 
+  selectedPt, 
+  onSelectPt, 
+  selectedAbbonamentoPt,
+  onSelectAbbonamentoPt,
+  onNavigateWorkout, 
+  onNavigateProfile, 
+  onUpdateUser 
+}) {
+  // Se l'utente ha ruolo 'entrambi', la vista attiva è determinata da activeHomeRole ('pt' o 'atleta')
+  // Altrimenti, se non ha entrambi i ruoli, è atleta se 'utente_atleta' o se non è loggato
+  const isAtleta = user?.ruolo === 'entrambi'
+    ? activeHomeRole === 'atleta'
+    : (!user || user.ruolo === 'utente_atleta' || (!user.ruolo && !user.isPt));
   
   // Lista dei PT attivi dell'atleta
   const initialPtList = user?.personalTrainers || [];
@@ -148,6 +163,51 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
     return nome.includes(q) || cognome.includes(q) || fullName1.includes(q) || fullName2.includes(q);
   });
 
+  // Se l'utente ha cliccato su "Abbonamento", mostra la pagina per gestire l'abbonamento
+  if (selectedAbbonamentoPt) {
+    return (
+      <GestioneAbbonamentoScreen
+        trainer={selectedAbbonamentoPt}
+        user={user}
+        onBack={() => onSelectAbbonamentoPt && onSelectAbbonamentoPt(null)}
+        onSubscriptionCancelled={(updatedUser) => {
+          if (onUpdateUser && updatedUser) {
+            onUpdateUser(updatedUser);
+          }
+          if (updatedUser?.personalTrainers) {
+            setActiveTrainers(updatedUser.personalTrainers);
+          }
+          if (onSelectAbbonamentoPt) {
+            onSelectAbbonamentoPt(null);
+          }
+        }}
+      />
+    );
+  }
+
+  // Se l'utente ha cliccato su un PT, mostra la pagina di dettaglio del PT
+  if (selectedPt) {
+    const ptTargetId = selectedPt.id || selectedPt.idUtente;
+    return (
+      <PtDetailScreen
+        ptId={ptTargetId}
+        user={user}
+        onBack={() => onSelectPt && onSelectPt(null)}
+        onSubscriptionSuccess={(updatedUser) => {
+          if (onUpdateUser && updatedUser) {
+            onUpdateUser(updatedUser);
+          }
+          if (updatedUser?.personalTrainers) {
+            setActiveTrainers(updatedUser.personalTrainers);
+          }
+          if (onSelectPt) {
+            onSelectPt(null);
+          }
+        }}
+      />
+    );
+  }
+
   // CASO 1: L'utente atleta NON ha nessun personal trainer attivo (oppure è un visitatore/non registrato)
   if (isAtleta && !haPersonalTrainerAttivo) {
     return (
@@ -208,13 +268,15 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
         ) : filteredPtVerificati.length > 0 ? (
           <View className="px-5 mt-1">
             {filteredPtVerificati.map((pt, index) => {
-              const primaSpecializzazione = Array.isArray(pt.specializzazioni) && pt.specializzazioni.length > 0 
-                ? pt.specializzazioni[0].nome 
-                : null;
+              const specializzazioneVetrina = (pt.specializzazioneInEvidenza && pt.specializzazioneInEvidenza.nome)
+                ? pt.specializzazioneInEvidenza.nome
+                : (Array.isArray(pt.specializzazioni) && pt.specializzazioni.length > 0 ? pt.specializzazioni[0].nome : null);
 
               return (
-                <View 
+                <TouchableOpacity 
                   key={pt.id || pt.idUtente || index}
+                  activeOpacity={0.75}
+                  onPress={() => onSelectPt && onSelectPt(pt)}
                   className="bg-[#16161A] border border-borderDark/60 rounded-2xl p-4 mb-3 relative"
                 >
                   <View className="flex-row items-start">
@@ -227,19 +289,20 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
                       )}
                     </View>
 
-                    {/* Testi a sinistra: Nome in alto a sx, Prima Specialità sotto */}
+                    {/* Testi a sinistra: Nome in alto a sx, Specialità in evidenza sotto */}
                     <View className="flex-1 pr-24 pt-0.5">
                       <Text className="text-white text-base font-bold" numberOfLines={1}>
                         {pt.nome} {pt.cognome}
                       </Text>
 
-                      {primaSpecializzazione ? (
+                      {specializzazioneVetrina ? (
                         <Text className="text-[#FFB430] text-xs font-semibold mt-1" numberOfLines={1}>
-                          {primaSpecializzazione}
+                          {specializzazioneVetrina}
                         </Text>
                       ) : null}
                     </View>
                   </View>
+
 
                   {/* Stelle posizionate in alto a destra per allineamento verticale coerente */}
                   <View className="absolute top-4 right-4 items-end">
@@ -257,7 +320,7 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
                       {pt.eta !== null && pt.eta !== undefined ? `${pt.eta} anni` : ''}
                     </Text>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
           </View>
@@ -305,7 +368,6 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }}>
         {/* Titolo singolare / plurale richiesto */}
         <View className="mb-5">
-          <Text className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">Il tuo percorso</Text>
           <Text className="text-2xl font-black text-white">
             {isSingle ? 'Il tuo Personal Trainer' : 'I tuoi Personal Trainer'}
           </Text>
@@ -317,8 +379,12 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
             key={pt.id || pt.idUtente || index}
             className="bg-[#16161A] border border-borderDark/60 rounded-3xl p-4 mb-4"
           >
-            {/* Header Dettagli PT */}
-            <View className="flex-row items-center justify-between">
+            {/* Header Dettagli PT (Cliccabile per aprire la scheda di dettaglio) */}
+            <TouchableOpacity 
+              activeOpacity={0.75}
+              onPress={() => onSelectPt && onSelectPt(pt)}
+              className="flex-row items-center justify-between"
+            >
               <View className="flex-row items-center flex-1 mr-3">
                 <View className="w-14 h-14 rounded-full bg-[#1E1E24] border border-[#2A2A32] justify-center items-center overflow-hidden mr-3.5">
                   {pt.urlImmagineProfilo ? (
@@ -341,42 +407,20 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
                       count={pt.numeroRecensioni} 
                     />
                   </View>
-
-                  <Text className="text-zinc-400 text-xs mt-1">Personal Trainer attivo</Text>
                 </View>
               </View>
+            </TouchableOpacity>
 
-              <View className="bg-[#FEB32F]/15 px-3 py-1.5 rounded-xl border border-[#FEB32F]/30">
-                <Text className="text-[#FEB32F] text-xs font-bold">Seguito</Text>
-              </View>
-            </View>
-
-            {/* Specializzazioni del PT attivo se presenti */}
-            {Array.isArray(pt.specializzazioni) && pt.specializzazioni.length > 0 && (
-              <View className="flex-row flex-wrap gap-1.5 mt-3 pt-3 border-t border-[#222228]">
-                {pt.specializzazioni.map((spec) => (
-                  <View 
-                    key={spec.id} 
-                    className="bg-[#1E1E24] border border-[#2D2D38] px-2 py-0.5 rounded-lg"
-                  >
-                    <Text className="text-zinc-400 text-[11px] font-medium">{spec.nome}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Pulsanti Azione: "Abbonamento" (inattivo per ora) e "Recensione" */}
+            {/* Pulsanti Azione: "Abbonamento" e "Recensione" */}
             <View className="flex-row gap-2.5 mt-4 pt-3 border-t border-[#222228]">
-              {/* Pulsante Abbonamento (Inattivo) */}
+              {/* Pulsante Abbonamento */}
               <TouchableOpacity
-                activeOpacity={0.6}
-                onPress={() => {
-                  Alert.alert('Abbonamento', 'La gestione del piano di abbonamento sarà presto disponibile.');
-                }}
+                activeOpacity={0.7}
+                onPress={() => onSelectAbbonamentoPt && onSelectAbbonamentoPt(pt)}
                 className="flex-1 py-2.5 px-3 rounded-xl bg-[#1B1B22] border border-[#2D2D38] flex-row items-center justify-center gap-2"
               >
-                <Ionicons name="card-outline" size={16} color="#71717A" />
-                <Text className="text-zinc-400 text-xs font-semibold">Abbonamento</Text>
+                <Ionicons name="card-outline" size={16} color="#FEB32F" />
+                <Text className="text-zinc-300 text-xs font-semibold">Abbonamento</Text>
               </TouchableOpacity>
 
               {/* Pulsante Recensione */}
@@ -394,21 +438,6 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
             </View>
           </View>
         ))}
-
-        {/* Card rapida per accedere alle schede di allenamento */}
-        <TouchableOpacity 
-          className="bg-[#18181C] border border-[#282830] rounded-2xl p-5 mb-5 flex-row items-center justify-between"
-          activeOpacity={0.7}
-          onPress={onNavigateWorkout}
-        >
-          <View className="flex-1 mr-3">
-            <Text className="text-white font-bold text-base">Le tue schede di allenamento</Text>
-            <Text className="text-zinc-400 text-xs mt-1">Consulta gli esercizi e i piani creati dal tuo trainer</Text>
-          </View>
-          <View className="w-10 h-10 rounded-xl bg-[#222228] justify-center items-center">
-            <Ionicons name="chevron-forward" size={20} color="#FFFFFF" />
-          </View>
-        </TouchableOpacity>
 
         {/* Pulsante "Vedi altri" per estendere la lista di tutti i PT */}
         <TouchableOpacity
@@ -431,13 +460,7 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
 
         {/* Sezione estesa "Vedi altri" con filtri e lista completa dei PT */}
         {showAllTrainers && (
-          <View className="mt-2 pt-2 border-t border-[#222228]">
-            {/* Intestazione Sezione Estesa */}
-            <View className="mb-2">
-              <Text className="text-lg font-extrabold text-white">Tutti i Personal Trainer</Text>
-              <Text className="text-xs text-zinc-400 mt-0.5">Esplora altri professionisti nel database</Text>
-            </View>
-
+          <View className="mt-1">
             {/* Barra di Ricerca affiancata al Tasto Filtri nella lista estesa */}
             <View className="mb-3 flex-row items-center gap-2.5">
               <View className="flex-1 flex-row items-center bg-[#16161A] border border-borderDark/60 rounded-2xl px-3.5 py-2.5 h-11">
@@ -484,18 +507,37 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
                 <ActivityIndicator size="small" color="#FEB32F" />
                 <Text className="text-zinc-500 text-xs mt-3">Caricamento trainer...</Text>
               </View>
-            ) : filteredPtVerificati.length > 0 ? (
-              <View>
-                {filteredPtVerificati.map((pt, index) => {
-                  const primaSpecializzazione = Array.isArray(pt.specializzazioni) && pt.specializzazioni.length > 0 
-                    ? pt.specializzazioni[0].nome 
-                    : null;
+            ) : (() => {
+              // Escludi i personal trainer a cui l'atleta è già abbonato/attivo
+              const activeIds = new Set(
+                (activeTrainers || []).map(t => t.id || t.idUtente)
+              );
+              const otherTrainers = filteredPtVerificati.filter(
+                pt => !activeIds.has(pt.id || pt.idUtente)
+              );
 
-                  return (
-                    <View 
-                      key={pt.id || pt.idUtente || index}
-                      className="bg-[#16161A] border border-borderDark/60 rounded-2xl p-4 mb-3 relative"
-                    >
+              if (otherTrainers.length === 0) {
+                return (
+                  <View className="py-6 justify-center items-center">
+                    <Text className="text-zinc-500 text-xs text-center">Nessun altro personal trainer trovato.</Text>
+                  </View>
+                );
+              }
+
+              return (
+                <View>
+                  {otherTrainers.map((pt, index) => {
+                    const specializzazioneVetrina = (pt.specializzazioneInEvidenza && pt.specializzazioneInEvidenza.nome)
+                      ? pt.specializzazioneInEvidenza.nome
+                      : (Array.isArray(pt.specializzazioni) && pt.specializzazioni.length > 0 ? pt.specializzazioni[0].nome : null);
+
+                    return (
+                      <TouchableOpacity 
+                        key={pt.id || pt.idUtente || index}
+                        activeOpacity={0.75}
+                        onPress={() => onSelectPt && onSelectPt(pt)}
+                        className="bg-[#16161A] border border-borderDark/60 rounded-2xl p-4 mb-3 relative"
+                      >
                       <View className="flex-row items-start">
                         {/* Immagine Profilo */}
                         <View className="w-14 h-14 rounded-full bg-[#1E1E24] border border-[#2A2A34] justify-center items-center overflow-hidden mr-3.5">
@@ -506,19 +548,20 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
                           )}
                         </View>
 
-                        {/* Testi a sinistra: Nome in alto a sx, Prima Specialità sotto */}
+                        {/* Testi a sinistra: Nome in alto a sx, Specialità in evidenza sotto */}
                         <View className="flex-1 pr-24 pt-0.5">
                           <Text className="text-white text-base font-bold" numberOfLines={1}>
                             {pt.nome} {pt.cognome}
                           </Text>
 
-                          {primaSpecializzazione ? (
+                          {specializzazioneVetrina ? (
                             <Text className="text-[#FFB430] text-xs font-semibold mt-1" numberOfLines={1}>
-                              {primaSpecializzazione}
+                              {specializzazioneVetrina}
                             </Text>
                           ) : null}
                         </View>
                       </View>
+
 
                       {/* Stelle posizionate in alto a destra per allineamento verticale coerente */}
                       <View className="absolute top-4 right-4 items-end">
@@ -536,16 +579,12 @@ export default function HomeScreen({ user, onNavigateWorkout, onNavigateProfile 
                           {pt.eta !== null && pt.eta !== undefined ? `${pt.eta} anni` : ''}
                         </Text>
                       </View>
-                    </View>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
-            ) : (
-              <View className="py-8 justify-center items-center">
-                <Ionicons name="people-outline" size={40} color="#303038" className="mb-2" />
-                <Text className="text-zinc-400 text-sm font-semibold">Nessun personal trainer trovato</Text>
-              </View>
-            )}
+            );
+          })()}
           </View>
         )}
 

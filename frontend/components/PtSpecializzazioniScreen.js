@@ -6,6 +6,7 @@ import { config } from '../config';
 export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser }) {
   const [allSpecializzazioni, setAllSpecializzazioni] = useState([]);
   const [selectedIds, setSelectedIds] = useState([]);
+  const [inEvidenzaId, setInEvidenzaId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -15,6 +16,12 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
     // Inizializza le specializzazioni già selezionate dal PT
     const initialIds = (user.specializzazioni || []).map(s => s.id);
     setSelectedIds(initialIds);
+
+    // Inizializza la specializzazione in evidenza (se presente)
+    const initialEvidenzaId = user.specializzazioneInEvidenzaId || 
+      (user.specializzazioneInEvidenza && user.specializzazioneInEvidenza.id) ||
+      (initialIds.length > 0 ? initialIds[0] : null);
+    setInEvidenzaId(initialEvidenzaId);
 
     // Carica il catalogo ordinato alfabeticamente
     fetch(`${config.apiUrl}/api/auth/specializzazioni`)
@@ -50,8 +57,35 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
     setErrorMessage('');
     setSuccessMessage('');
     if (selectedIds.includes(id)) {
-      setSelectedIds(prev => prev.filter(item => item !== id));
+      const next = selectedIds.filter(item => item !== id);
+      setSelectedIds(next);
+      // Se era la specializzazione in evidenza, assegna la prima disponibile tra le rimaste
+      if (inEvidenzaId === id) {
+        setInEvidenzaId(next.length > 0 ? next[0] : null);
+      }
     } else {
+      if (selectedIds.length >= 5) {
+        setErrorMessage('Hai già selezionato 5 opzioni');
+        if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+        errorTimerRef.current = setTimeout(() => {
+          setErrorMessage('');
+        }, 3000);
+        return;
+      }
+      const next = [...selectedIds, id];
+      setSelectedIds(next);
+      // Se non c'è ancora nessuna specializzazione in evidenza, imposta questa
+      if (!inEvidenzaId) {
+        setInEvidenzaId(id);
+      }
+    }
+  };
+
+  const setEvidenza = (id) => {
+    setErrorMessage('');
+    setSuccessMessage('');
+    // La specializzazione deve essere tra quelle selezionate
+    if (!selectedIds.includes(id)) {
       if (selectedIds.length >= 5) {
         setErrorMessage('Hai già selezionato 5 opzioni');
         if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
@@ -62,6 +96,7 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
       }
       setSelectedIds(prev => [...prev, id]);
     }
+    setInEvidenzaId(id);
   };
 
   const handleSave = async () => {
@@ -73,7 +108,10 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
       const res = await fetch(`${config.apiUrl}/api/auth/pt/${user.id}/specializzazioni`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ specializzazioneIds: selectedIds }),
+        body: JSON.stringify({ 
+          specializzazioneIds: selectedIds,
+          specializzazioneInEvidenzaId: inEvidenzaId 
+        }),
       });
 
       const data = await res.json();
@@ -91,9 +129,12 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
       if (onUpdateUser) {
         // Aggiorna l'oggetto utente in memoria
         const updatedSpecializzazioni = allSpecializzazioni.filter(s => selectedIds.includes(s.id));
+        const updatedInEvidenza = allSpecializzazioni.find(s => s.id === inEvidenzaId) || (updatedSpecializzazioni.length > 0 ? updatedSpecializzazioni[0] : null);
         onUpdateUser({
           ...user,
           specializzazioni: updatedSpecializzazioni,
+          specializzazioneInEvidenzaId: updatedInEvidenza ? updatedInEvidenza.id : null,
+          specializzazioneInEvidenza: updatedInEvidenza,
         });
       }
     } catch (err) {
@@ -103,6 +144,7 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
       setSaving(false);
     }
   };
+
 
   return (
     <View className="flex-1 bg-premiumDark">
@@ -119,9 +161,12 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
 
       {/* Contenuto statico superiore */}
       <View className="px-6 pt-5">
-        <Text className="text-zinc-400 text-sm leading-5 mb-4">
+        <Text className="text-zinc-400 text-sm leading-5 mb-2">
           Scegli gli ambiti e gli obiettivi in cui sei specializzato per aiutare gli utenti a trovarti più facilmente.{"\n"}
           Puoi selezionarne fino a un massimo di 5.
+        </Text>
+        <Text className="text-zinc-500 text-xs leading-4 mb-4">
+          Seleziona <Ionicons name="star" size={13} color="#FEB32F" /> per scegliere quale mettere in evidenza.
         </Text>
 
         {/* Riga unica: Messaggio a sinistra e Contatore a destra alla stessa altezza */}
@@ -159,36 +204,62 @@ export default function PtSpecializzazioniScreen({ user, onBack, onUpdateUser })
           >
             {allSpecializzazioni.map((spec, index) => {
               const isSelected = selectedIds.includes(spec.id);
+              const isEvidenza = inEvidenzaId === spec.id;
               const isLast = index === allSpecializzazioni.length - 1;
+
               return (
-                <TouchableOpacity
+                <View
                   key={spec.id}
-                  activeOpacity={0.65}
-                  onPress={() => toggleSpecializzazione(spec.id)}
-                  className={`flex-row items-center justify-between py-3.5 px-1 ${
+                  className={`flex-row items-center justify-between py-3 px-1 ${
                     !isLast ? 'border-b border-[#222228]/80' : ''
                   }`}
                 >
-                  <Text
-                    className={`text-sm flex-1 mr-3 ${
-                      isSelected ? 'text-[#FEB32F] font-semibold' : 'text-zinc-300 font-medium'
-                    }`}
+                  <TouchableOpacity
+                    activeOpacity={0.65}
+                    onPress={() => toggleSpecializzazione(spec.id)}
+                    className="flex-1 flex-row items-center mr-2 py-1"
                   >
-                    {spec.nome}
-                  </Text>
+                    {/* Checkbox Icon */}
+                    <Ionicons
+                      name={isSelected ? 'checkbox' : 'square-outline'}
+                      size={22}
+                      color={isSelected ? '#FEB32F' : '#52525B'}
+                    />
+                    <Text
+                      className={`text-sm ml-3 flex-1 ${
+                        isSelected ? 'text-white font-semibold' : 'text-zinc-300 font-medium'
+                      }`}
+                    >
+                      {spec.nome}
+                    </Text>
+                  </TouchableOpacity>
 
-                  {/* Checkbox Icon */}
-                  <Ionicons
-                    name={isSelected ? 'checkbox' : 'square-outline'}
-                    size={22}
-                    color={isSelected ? '#FEB32F' : '#52525B'}
-                  />
-                </TouchableOpacity>
+                  {/* Pulsante In Evidenza (solo icona Stella tutto a destra) */}
+                  {isSelected && (
+                    <TouchableOpacity
+                      activeOpacity={0.7}
+                      onPress={() => setEvidenza(spec.id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      className={`w-9 h-9 rounded-xl items-center justify-center border ${
+                        isEvidenza 
+                          ? 'bg-[#FEB32F]/15 border-[#FEB32F]/50' 
+                          : 'bg-[#1E1E24]/60 border-[#2A2A34]'
+                      }`}
+                    >
+                      <Ionicons
+                        name={isEvidenza ? 'star' : 'star-outline'}
+                        size={18}
+                        color={isEvidenza ? '#FEB32F' : '#71717A'}
+                      />
+                    </TouchableOpacity>
+                  )}
+                </View>
               );
             })}
           </ScrollView>
         )}
       </View>
+
 
       {/* Footer fisso con bottone Salva */}
       <View className="px-6 pt-3 pb-8 border-t border-[#1A1A1E] bg-premiumDark">

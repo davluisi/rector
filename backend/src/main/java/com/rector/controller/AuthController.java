@@ -7,6 +7,7 @@ import com.rector.entity.OtpVerifica;
 import com.rector.entity.AtletaPersonalTrainer;
 import com.rector.entity.PersonalTrainer;
 import com.rector.entity.Specializzazione;
+import com.rector.entity.Recensione;
 import com.rector.repository.UtenteRepository;
 import com.rector.repository.OtpVerificaRepository;
 import com.rector.repository.AtletaPersonalTrainerRepository;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.regex.Pattern;
 import java.time.LocalDateTime;
@@ -91,14 +93,108 @@ public class AuthController {
         java.util.List<Specializzazione> specializzazioni = specializzazioneRepository.findAllById(idSet);
         PersonalTrainer pt = ptOpt.get();
         pt.setSpecializzazioni(new java.util.HashSet<>(specializzazioni));
+
+        // Gestione specializzazione in evidenza (se presente deve appartenere alle specializzazioni scelte)
+        Object inEvidenzaObj = body.get("specializzazioneInEvidenzaId");
+        Long inEvidenzaId = null;
+        if (inEvidenzaObj instanceof Number) {
+            inEvidenzaId = ((Number) inEvidenzaObj).longValue();
+        }
+
+        if (inEvidenzaId != null) {
+            final Long targetEvidenzaId = inEvidenzaId;
+            Specializzazione specEvidenza = specializzazioni.stream()
+                .filter(s -> s.getId().equals(targetEvidenzaId))
+                .findFirst()
+                .orElse(null);
+            pt.setSpecializzazioneInEvidenza(specEvidenza);
+        } else if (!specializzazioni.isEmpty()) {
+            // Se non specificata esplicitamente, imposta la prima come default
+            pt.setSpecializzazioneInEvidenza(specializzazioni.get(0));
+        } else {
+            pt.setSpecializzazioneInEvidenza(null);
+        }
+
         personalTrainerRepository.save(pt);
 
-        // Rispondi con l'elenco aggiornato
+        // Rispondi con l'elenco DTO aggiornato e l'ID in evidenza per evitare proxy ByteBuddy di Hibernate
+        java.util.List<Map<String, Object>> specializzazioniResponse = new java.util.ArrayList<>();
+        for (Specializzazione s : specializzazioni) {
+            specializzazioniResponse.add(Map.of("id", s.getId(), "nome", s.getNome()));
+        }
+        specializzazioniResponse.sort((a, b) -> ((String) a.get("nome")).compareToIgnoreCase((String) b.get("nome")));
+
+        Map<String, Object> evidenzaMap = null;
+        if (pt.getSpecializzazioneInEvidenza() != null) {
+            evidenzaMap = Map.of(
+                "id", pt.getSpecializzazioneInEvidenza().getId(),
+                "nome", pt.getSpecializzazioneInEvidenza().getNome()
+            );
+        }
+
         return ResponseEntity.ok(Map.of(
             "messaggio", "Specializzazioni aggiornate con successo",
-            "specializzazioni", pt.getSpecializzazioni()
+            "specializzazioni", specializzazioniResponse,
+            "specializzazioneInEvidenzaId", pt.getSpecializzazioneInEvidenza() != null ? pt.getSpecializzazioneInEvidenza().getId() : null,
+            "specializzazioneInEvidenza", evidenzaMap != null ? evidenzaMap : Map.of()
         ));
     }
+
+    // Attiva o disattiva il profilo atleta per un utente PT
+    @PutMapping("/pt/{idPt}/toggle-profilo-atleta")
+    public ResponseEntity<?> toggleProfiloAtletaPt(@PathVariable Long idPt) {
+        java.util.Optional<Utente> utenteOpt = utenteRepository.findById(idPt);
+        if (utenteOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Map.of("errore", "Utente non trovato"));
+        }
+
+        Utente utente = utenteOpt.get();
+        if (utente.getPersonalTrainer() == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("errore", "L'utente non è un Personal Trainer"));
+        }
+
+        boolean haGiaProfiloAtleta = utente.getAtleta() != null;
+
+        if (haGiaProfiloAtleta) {
+            // Verifica se ha abbonamenti o relazioni attive con altri personal trainer
+            long abbonamentiAttivi = atletaPersonalTrainerRepository.countByIdIdAtletaAndAttivoTrue(idPt);
+            if (abbonamentiAttivi > 0) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of(
+                        "haAbbonamentoAttivo", true,
+                        "errore", "Hai un abbonamento attivo con un altro personal trainer, non puoi disattivare il profilo da atleta ora"
+                    ));
+            }
+
+            // Disattiva profilo atleta: rimuovi il record UtenteAtleta
+            utente.setAtleta(null);
+            utente.setRuolo(Utente.RUOLO_PT);
+            utenteRepository.save(utente);
+
+            return ResponseEntity.ok(Map.of(
+                "messaggio", "Profilo atleta disattivato con successo",
+                "user", buildUserResponse(utente)
+            ));
+        } else {
+            // Attiva profilo atleta
+            com.rector.entity.UtenteAtleta atleta = new com.rector.entity.UtenteAtleta();
+            atleta.setUtente(utente);
+            utente.setAtleta(atleta);
+            utente.setRuolo(Utente.RUOLO_ENTRAMBI);
+            utenteRepository.save(utente);
+
+            return ResponseEntity.ok(Map.of(
+                "messaggio", "Profilo atleta attivato con successo",
+                "user", buildUserResponse(utente)
+            ));
+        }
+    }
+
+
+
+
 
     @GetMapping("/personal-trainers/verificati")
     public ResponseEntity<?> getPtVerificati(
@@ -164,8 +260,21 @@ public class AuthController {
                 specs.sort((a, b) -> ((String) a.get("nome")).compareToIgnoreCase((String) b.get("nome")));
             }
             map.put("specializzazioni", specs);
+
+            // Specializzazione in evidenza (prioritaria per la vetrina)
+            Specializzazione inEvidenza = pt.getSpecializzazioneInEvidenza();
+            if (inEvidenza == null && !specs.isEmpty()) {
+                // Fallback alla prima specializzazione se non impostata esplicitamente
+                map.put("specializzazioneInEvidenza", specs.get(0));
+            } else if (inEvidenza != null) {
+                map.put("specializzazioneInEvidenza", Map.of("id", inEvidenza.getId(), "nome", inEvidenza.getNome()));
+            } else {
+                map.put("specializzazioneInEvidenza", null);
+            }
+
             // Statistiche recensioni del PT
             List<Object[]> stats = recensioneRepository.findStatsByPtId(u.getId());
+
             double mediaStelle = 0.0;
             long numeroRecensioni = 0L;
             if (stats != null && !stats.isEmpty() && stats.get(0)[0] != null) {
@@ -209,6 +318,207 @@ public class AuthController {
         });
 
         return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Dettaglio completo di un singolo Personal Trainer (per la pagina dettaglio atleta)
+     */
+    @GetMapping("/personal-trainers/{id}")
+    public ResponseEntity<?> getPtDettaglio(@PathVariable Long id) {
+        Optional<PersonalTrainer> ptOpt = personalTrainerRepository.findById(id);
+        if (ptOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("errore", "Personal Trainer non trovato"));
+        }
+
+        PersonalTrainer pt = ptOpt.get();
+        Utente u = pt.getUtente();
+        if (u == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("errore", "Utente associato al Personal Trainer non trovato"));
+        }
+
+        LocalDate oggi = LocalDate.now();
+        Integer eta = null;
+        if (u.getDataNascita() != null) {
+            eta = Period.between(u.getDataNascita(), oggi).getYears();
+        }
+
+        Map<String, Object> map = new java.util.HashMap<>();
+        map.put("id", u.getId());
+        map.put("idUtente", u.getId());
+        map.put("nome", u.getNome());
+        map.put("cognome", u.getCognome());
+        map.put("email", u.getEmail());
+        map.put("urlImmagineProfilo", u.getUrlImmagineProfilo() != null ? u.getUrlImmagineProfilo() : "");
+        map.put("eta", eta);
+        map.put("dataNascita", u.getDataNascita() != null ? u.getDataNascita().toString() : null);
+        map.put("genere", u.getGenere() != null ? u.getGenere().name() : null);
+        map.put("verificato", pt.isVerificato());
+
+        // Specializzazioni
+        List<Map<String, Object>> specs = new java.util.ArrayList<>();
+        if (pt.getSpecializzazioni() != null) {
+            for (Specializzazione s : pt.getSpecializzazioni()) {
+                specs.add(Map.of("id", s.getId(), "nome", s.getNome()));
+            }
+            specs.sort((a, b) -> ((String) a.get("nome")).compareToIgnoreCase((String) b.get("nome")));
+        }
+        map.put("specializzazioni", specs);
+
+        Specializzazione inEvidenza = pt.getSpecializzazioneInEvidenza();
+        if (inEvidenza != null) {
+            map.put("specializzazioneInEvidenza", Map.of("id", inEvidenza.getId(), "nome", inEvidenza.getNome()));
+        } else if (!specs.isEmpty()) {
+            map.put("specializzazioneInEvidenza", specs.get(0));
+        } else {
+            map.put("specializzazioneInEvidenza", null);
+        }
+
+        // Statistiche recensioni
+        List<Object[]> stats = recensioneRepository.findStatsByPtId(u.getId());
+        double mediaStelle = 0.0;
+        long numeroRecensioni = 0L;
+        if (stats != null && !stats.isEmpty() && stats.get(0)[0] != null) {
+            mediaStelle = Math.round(((Number) stats.get(0)[0]).doubleValue() * 10.0) / 10.0;
+            numeroRecensioni = ((Number) stats.get(0)[1]).longValue();
+        }
+        map.put("mediaStelle", mediaStelle);
+        map.put("numeroRecensioni", numeroRecensioni);
+
+        // Lista recensioni ricevute dal trainer
+        List<Recensione> recensioniList = recensioneRepository.findByPersonalTrainerIdUtente(u.getId());
+        List<Map<String, Object>> recensioniData = new java.util.ArrayList<>();
+        for (Recensione r : recensioniList) {
+            Utente autore = r.getAtleta() != null ? r.getAtleta().getUtente() : null;
+            Map<String, Object> rMap = new java.util.HashMap<>();
+            rMap.put("id", r.getId());
+            rMap.put("stelle", r.getStelle());
+            rMap.put("commento", r.getCommento());
+            rMap.put("dataCreazione", r.getDataCreazione() != null ? r.getDataCreazione().toString() : null);
+            if (autore != null) {
+                rMap.put("nomeAutore", autore.getNome());
+                rMap.put("cognomeAutore", autore.getCognome());
+                rMap.put("urlImmagineProfiloAutore", autore.getUrlImmagineProfilo() != null ? autore.getUrlImmagineProfilo() : "");
+            }
+            recensioniData.add(rMap);
+        }
+        map.put("recensioni", recensioniData);
+
+        return ResponseEntity.ok(map);
+    }
+
+    /**
+     * Sottoscrizione abbonamento: crea l'associazione atleta-personal trainer
+     */
+    @PostMapping("/pt/{idPt}/abbonati")
+    public ResponseEntity<?> abbonatiAPersonalTrainer(
+            @PathVariable Long idPt,
+            @RequestBody Map<String, Long> request
+    ) {
+        Long idAtleta = request != null ? request.get("idAtleta") : null;
+        if (idAtleta == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("errore", "ID atleta obbligatorio"));
+        }
+
+        Optional<Utente> atletaUtenteOpt = utenteRepository.findById(idAtleta);
+        if (atletaUtenteOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("errore", "Utente atleta non trovato"));
+        }
+
+        Utente atletaUtente = atletaUtenteOpt.get();
+        if (atletaUtente.getAtleta() == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("errore", "L'utente non ha un profilo da atleta attivo"));
+        }
+
+        Optional<PersonalTrainer> ptOpt = personalTrainerRepository.findById(idPt);
+        if (ptOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("errore", "Personal Trainer non trovato"));
+        }
+
+        PersonalTrainer pt = ptOpt.get();
+
+        // Controllo se l'atleta sta tentando di abbonarsi a se stesso
+        if (idAtleta.equals(idPt)) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("errore", "Non puoi abbonarti al tuo stesso profilo"));
+        }
+
+        AtletaPersonalTrainer.AtletaPersonalTrainerId compositeId = 
+                new AtletaPersonalTrainer.AtletaPersonalTrainerId(idAtleta, idPt);
+
+        Optional<AtletaPersonalTrainer> existingOpt = atletaPersonalTrainerRepository.findById(compositeId);
+        AtletaPersonalTrainer relazione;
+
+        if (existingOpt.isPresent()) {
+            relazione = existingOpt.get();
+            if (relazione.isAttivo()) {
+                return ResponseEntity.status(HttpStatus.CONFLICT)
+                        .body(Map.of("errore", "Sei già abbonato a questo Personal Trainer"));
+            }
+            // Se c'era una relazione inattiva, la riattiviamo
+            relazione.setAttivo(true);
+            relazione.setDataInizio(LocalDateTime.now());
+        } else {
+            relazione = new AtletaPersonalTrainer();
+            relazione.setId(compositeId);
+            relazione.setAtleta(atletaUtente.getAtleta());
+            relazione.setPersonalTrainer(pt);
+            relazione.setAttivo(true);
+            relazione.setDataInizio(LocalDateTime.now());
+        }
+
+        atletaPersonalTrainerRepository.save(relazione);
+
+        // Restituiamo il profilo utente aggiornato così il frontend può aggiornare lo state globale
+        return ResponseEntity.ok(Map.of(
+                "messaggio", "Abbonamento attivato con successo!",
+                "user", buildUserResponse(atletaUtente)
+        ));
+    }
+
+    /**
+     * Annulla / Disattiva abbonamento con un Personal Trainer
+     */
+    @PostMapping("/pt/{idPt}/annulla-abbonamento")
+    public ResponseEntity<?> annullaAbbonamento(
+            @PathVariable Long idPt,
+            @RequestBody Map<String, Long> request
+    ) {
+        Long idAtleta = request != null ? request.get("idAtleta") : null;
+        if (idAtleta == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("errore", "ID atleta obbligatorio"));
+        }
+
+        Optional<Utente> atletaUtenteOpt = utenteRepository.findById(idAtleta);
+        if (atletaUtenteOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("errore", "Utente atleta non trovato"));
+        }
+
+        Utente atletaUtente = atletaUtenteOpt.get();
+        AtletaPersonalTrainer.AtletaPersonalTrainerId compositeId = 
+                new AtletaPersonalTrainer.AtletaPersonalTrainerId(idAtleta, idPt);
+
+        Optional<AtletaPersonalTrainer> relOpt = atletaPersonalTrainerRepository.findById(compositeId);
+        if (relOpt.isEmpty() || !relOpt.get().isAttivo()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("errore", "Nessun abbonamento attivo trovato con questo Personal Trainer"));
+        }
+
+        AtletaPersonalTrainer relazione = relOpt.get();
+        relazione.setAttivo(false);
+        atletaPersonalTrainerRepository.save(relazione);
+
+        return ResponseEntity.ok(Map.of(
+                "messaggio", "Abbonamento annullato con successo",
+                "user", buildUserResponse(atletaUtente)
+        ));
     }
 
     @Autowired
@@ -556,6 +866,7 @@ public class AuthController {
                     }
                     ptMap.put("mediaStelle", activePtMedia);
                     ptMap.put("numeroRecensioni", activePtTotale);
+                    ptMap.put("dataInizio", rel.getDataInizio() != null ? rel.getDataInizio().toString() : null);
 
                     ptList.add(ptMap);
                 }
@@ -564,15 +875,34 @@ public class AuthController {
         resp.put("personalTrainers", ptList);
         resp.put("haPersonalTrainerAttivo", !ptList.isEmpty());
 
-        // Se l'utente è un Personal Trainer, includi le sue specializzazioni
+        // Se l'utente è un Personal Trainer, includi le sue specializzazioni e quella in evidenza
         java.util.List<Map<String, Object>> specializzazioniList = new java.util.ArrayList<>();
-        if (utente.getPersonalTrainer() != null && utente.getPersonalTrainer().getSpecializzazioni() != null) {
-            for (Specializzazione s : utente.getPersonalTrainer().getSpecializzazioni()) {
-                specializzazioniList.add(Map.of("id", s.getId(), "nome", s.getNome()));
+        Long inEvidenzaId = null;
+        Map<String, Object> inEvidenzaMap = null;
+        if (utente.getPersonalTrainer() != null) {
+            PersonalTrainer pt = utente.getPersonalTrainer();
+            if (pt.getSpecializzazioni() != null) {
+                for (Specializzazione s : pt.getSpecializzazioni()) {
+                    specializzazioniList.add(Map.of("id", s.getId(), "nome", s.getNome()));
+                }
+                specializzazioniList.sort((a, b) -> ((String) a.get("nome")).compareToIgnoreCase((String) b.get("nome")));
             }
-            specializzazioniList.sort((a, b) -> ((String) a.get("nome")).compareToIgnoreCase((String) b.get("nome")));
+            if (pt.getSpecializzazioneInEvidenza() != null) {
+                inEvidenzaId = pt.getSpecializzazioneInEvidenza().getId();
+                inEvidenzaMap = Map.of(
+                    "id", pt.getSpecializzazioneInEvidenza().getId(),
+                    "nome", pt.getSpecializzazioneInEvidenza().getNome()
+                );
+            } else if (!specializzazioniList.isEmpty()) {
+                // Default alla prima
+                inEvidenzaId = (Long) specializzazioniList.get(0).get("id");
+                inEvidenzaMap = specializzazioniList.get(0);
+            }
         }
         resp.put("specializzazioni", specializzazioniList);
+        resp.put("specializzazioneInEvidenzaId", inEvidenzaId);
+        resp.put("specializzazioneInEvidenza", inEvidenzaMap);
+
 
         return resp;
     }

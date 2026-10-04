@@ -39,6 +39,7 @@ Per garantire la scalabilità e la pulizia del codice frontend:
 *   **STYLING CON TAILWIND CSS**: Utilizza **Tailwind CSS** (tramite **NativeWind v4**) per lo styling delle interfacce tramite l'attributo `className`.
 *   **NO STYLE SHEET**: Evita l'uso del classico `StyleSheet.create` di React Native per non frammentare la definizione dei layout e mantenere gli stili vicini alla struttura dei tag (utility-first).
 *   **STILE MINIMAL E TEMA DARK**: Lo stile dell'applicazione deve essere sempre **MINIMAL** e utilizzare un tema **sempre dark** (scuro).
+*   **NO FRECCE/CHEVRON (">")**: Non utilizzare frecce o icone indicatrici a freccia (es. `>`, `chevron-forward`, `chevron-right`) nelle liste, nei menu o nei pulsanti di navigazione/impostazioni. Mantenere le card e i pulsanti essenziali e puliti.
 
 ---
 

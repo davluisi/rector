@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="0012-aggiunta-specializzazione-in-evidenza-pt" author="rector">
+        <!-- Aggiunta colonna id_specializzazione_in_evidenza alla tabella personal_trainer -->
+        <addColumn tableName="personal_trainer">
+            <column name="id_specializzazione_in_evidenza" type="BIGINT">
+                <constraints foreignKeyName="fk_pt_specializzazione_evidenza"
+                             referencedTableName="specializzazione"
+                             referencedColumnNames="id"
+                             nullable="true"/>
+            </column>
+        </addColumn>
+
+        <!-- Indice per velocizzare le query/join -->
+        <createIndex tableName="personal_trainer" indexName="idx_pt_spec_evidenza">
+            <column name="id_specializzazione_in_evidenza"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>

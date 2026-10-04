@@ -28,6 +28,10 @@ I tre colori fondamentali dell'applicazione sono:
 - [x] **Pannello Admin & Gestione Approvazioni (`AdminController`)**
   - Verifica e approvazione o rifiuto delle candidature dei Personal Trainer da parte degli amministratori.
   - Assegnazione e rimozione delle relazioni atleta - personal trainer.
+  - **Gestione Specializzazioni Admin (`GET/POST/PUT/DELETE /api/admin/specializzazioni`)**:
+    - Creazione di nuove specializzazioni con validazione unicità case-insensitive.
+    - Modifica del nome di una specializzazione esistente mantenendo inalterato l'ID (aggiornamento automatico e trasparente per tutti i PT associati).
+    - Eliminazione di una specializzazione con cancellazione a cascata sicura da `personal_trainer_specializzazione` e azzeramento del campo `id_specializzazione_in_evidenza` sui PT associati.
 - [x] **Archivio Esercizi del Personal Trainer (`ArchivioController`)**
   - Creazione e gestione di gruppi/cartelle di esercizi (`GruppoEsercizio`).
   - Caricamento, modifica ed eliminazione di video esercizi (`VideoEsercizio`) con generazione di anteprima immagine (`anteprimaVideo`).
@@ -37,6 +41,10 @@ I tre colori fondamentali dell'applicazione sono:
 - [x] **Vetrina e Ricerca Personal Trainer Verificati (`AuthController`)**
   - Endpoint `GET /api/auth/personal-trainers/verificati` con supporto a filtri combinati per ID specializzazioni e range di età (`etaMin`, `etaMax`).
   - **Algoritmo di Ordinamento con Media Bayesiana**: classifica dinamica basata su punteggio ponderato tra numero di recensioni reali e media voto, con collocazione bilanciata per i nuovi trainer a 0 recensioni e spareggio alfabetico.
+  - **Dettaglio Singolo Personal Trainer (`GET /api/auth/personal-trainers/{id}`)**:
+    - Restituisce anagrafica, età, specializzazioni, media voto, numero recensioni e lista delle singole recensioni con testo e data.
+  - **Sottoscrizione Abbonamento Atleta-PT (`POST /api/auth/pt/{idPt}/abbonati`)**:
+    - Crea/riattiva l'istanza di associazione nella tabella `atleta_personal_trainer`, consentendo all'atleta di iniziare a essere seguito dal PT scelto.
 - [x] **Sistema di Recensioni (`Recensione` & `RecensioneController`)**
   - Vincolo di unicità: un atleta può lasciare una sola recensione (valutazione da 1 a 5 stelle + commento opzionale) per ciascun PT, con possibilità di modifica.
   - Vincolo di autorizzazione: solo gli atleti con abbonamento/relazione attiva con il PT possono recensirlo.
@@ -68,8 +76,17 @@ I tre colori fondamentali dell'applicazione sono:
     - Icona filtri con badge indicatore filtri attivi.
     - Elenco card dei trainer verificati con RatingStars (5 stelle a riempimento parziale/continuo decimale, es. 4.3).
     - Caricamento ottimizzato: eliminazione del flash di "Nessun risultato" e debounce dello spinner a 3 secondi per risposte rapide.
+  - **Pagina Dettaglio Personal Trainer (`PtDetailScreen.js`)**:
+    - Apertura al tocco di qualsiasi card trainer (dalla vetrina, dalla lista estesa o dal proprio trainer attivo).
+    - Header con tasto back e titolo personalizzato contenente nome e cognome del Personal Trainer.
+    - Sezione profilo completa: immagine, badge verificato, età, genere, stelle con media voto e conteggio recensioni.
+    - Badge con tutte le specializzazioni (con stella su quella in evidenza).
+    - Lista di tutte le recensioni lasciate dagli atleti (autore, voto, commento).
+    - Barra inferiore fissa con pulsante **"ABBONATI"** (colore `#FFB430`), che crea l'istanza dell'associazione atleta-PT sul backend e aggiorna la home.
   - **Vista Personal Trainer**:
     - Dashboard dedicata "Home Personal Trainer".
+  - **Vista Bivalente (Ruolo 'entrambi' - PT + Atleta)**:
+    - Due selettori tab in alto nell'header ai lati del logo Rector: **"PT"** a sinistra (per accedere alla Home PT) e **"Atleta"** a destra (per accedere alla Home Atleta con vetrina/schede/PT seguiti).
 - [x] **Sistema di Valutazione a Stelle (`RatingStars.js`)**
   - Componente grafico per mostrare 5 stelle con mascheratura e frazionamento percentuale continuo per qualsiasi decimale.
 - [x] **Modale di Recensione (`ReviewModal.js`)**
@@ -80,12 +97,22 @@ I tre colori fondamentali dell'applicazione sono:
     - Età con slider a doppio cursore personalizzato (`AgeRangeSlider`).
 - [x] **Gestione Specializzazioni PT (`PtSpecializzazioniScreen.js`)**
   - Schermata a layout fisso: header, contatore `selezionate x/5` e pulsante "Salva" ancorati, con lista interna a checkbox scorrevole.
+  - Selezione della **specializzazione in evidenza** contrassegnata con badge/stella per la vetrina esplorativa degli atleti.
+
 - [x] **Archivio Esercizi PT (`ArchivioScreen.js`)**
   - Gestione gruppi ed upload video per i trainer.
-- [x] **Pannello Amministratore (`AdminScreen.js`)**
+- [x] **Funzionalità Amministratore (`AdminScreen.js`, `AdminSpecializzazioniScreen.js` & `ProfileScreen.js`)**
+  - Badge **"(admin)"** accanto a nome e cognome nella card dell'area personale.
+  - Accesso diretto con pulsanti dedicati:
+    - **"Statistiche"**: apre la panoramica con metriche utenti/pt/abbonamenti.
+    - **"Personal Trainer"**: apre le richieste di approvazione e gestione trainer.
+    - **"Specializzazioni"**: apre la schermata di gestione catalogo (`AdminSpecializzazioniScreen.js`) per aggiungere nuove specializzazioni, modificare il nome mantenendo inalterato l'ID sui trainer, ed eliminare con disassociazione automatica e conteggio trainer in tempo reale.
   - Approvazione/rifiuto PT e abbinamento atleta-trainer.
-- [x] **Profilo Utente & Conferma Logout (`ProfileScreen.js`)**
-  - Visualizzazione e modifica dati anagrafici, cambio password.
+- [x] **Profilo Utente & Impostazioni (`ProfileScreen.js`)**
+  - Per i Personal Trainer: voce **"Impostazioni"** che include:
+    - **Profilo**: dati anagrafici e biometrici (con rimozione da qui di email e password).
+    - **Account**: modifica email (con verifica OTP), cambio password e attivazione/disattivazione del profilo atleta con modale di conferma e controllo abbonamenti attivi.
+  - Per utenti atleta semplici: accesso diretto al profilo anagrafico e credenziali.
   - Modal di conferma in stile dark prima di eseguire il logout dall'account.
 
 ---

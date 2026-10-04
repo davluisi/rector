@@ -19,14 +19,20 @@ import { config } from '../config';
 
 const getApiUrl = () => config.apiUrl;
 
-export default function AdminScreen({ user, onBack }) {
-  const [activeSubTab, setActiveSubTab] = useState('stats'); // 'stats' | 'verifiche'
+export default function AdminScreen({ user, onBack, initialTab = 'stats' }) {
+  const [activeSubTab, setActiveSubTab] = useState(initialTab || 'stats'); // 'stats' | 'verifiche'
   const [stats, setStats] = useState(null);
   const [ptRichieste, setPtRichieste] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [previewModal, setPreviewModal] = useState({ visible: false, uri: null, name: '' });
   const [selectedPt, setSelectedPt] = useState(null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveSubTab(initialTab);
+    }
+  }, [initialTab]);
 
   const fetchStats = async () => {
     try {
@@ -67,13 +73,17 @@ export default function AdminScreen({ user, onBack }) {
 
   const loadData = async () => {
     setLoading(true);
-    await Promise.all([fetchStats(), fetchPtRichieste()]);
+    if (initialTab === 'stats') {
+      await fetchStats();
+    } else {
+      await fetchPtRichieste();
+    }
     setLoading(false);
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [initialTab]);
 
   const handleAggiornaStatoVerifica = async (idUtente, nuovoStato) => {
     try {
@@ -153,14 +163,20 @@ export default function AdminScreen({ user, onBack }) {
             className="w-10 h-10 rounded-full bg-[#18181C] items-center justify-center border border-[#282830]"
             activeOpacity={0.7}
           >
-            <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+            <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         ) : (
           <View className="w-10 h-10" />
         )}
         <View className="flex-row items-center gap-2">
-          <Ionicons name="shield-checkmark" size={20} color="#FFB430" />
-          <Text className="text-lg font-bold text-white tracking-tight">Pannello Admin</Text>
+          <Ionicons 
+            name={initialTab === 'stats' ? 'bar-chart-outline' : 'people-outline'} 
+            size={20} 
+            color="#FFB430" 
+          />
+          <Text className="text-lg font-bold text-white tracking-tight">
+            {initialTab === 'stats' ? 'Statistiche' : 'Personal Trainer'}
+          </Text>
         </View>
         <TouchableOpacity
           onPress={loadData}
@@ -171,50 +187,14 @@ export default function AdminScreen({ user, onBack }) {
         </TouchableOpacity>
       </View>
 
-      {/* Tabs Switcher */}
-      <View className="flex-row mx-5 my-4 p-1 bg-inputDark rounded-xl border border-inputBorder">
-        <TouchableOpacity
-          className={`flex-1 py-2.5 rounded-lg items-center ${activeSubTab === 'stats' ? 'bg-[#FFB430]' : ''}`}
-          activeOpacity={0.8}
-          onPress={() => setActiveSubTab('stats')}
-        >
-          <Text className={`text-xs font-bold ${activeSubTab === 'stats' ? 'text-black' : 'text-zinc-400'}`}>
-            Statistiche App
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          className={`flex-1 py-2.5 rounded-lg items-center flex-row justify-center gap-1.5 ${activeSubTab === 'verifiche' ? 'bg-[#FFB430]' : ''}`}
-          activeOpacity={0.8}
-          onPress={() => setActiveSubTab('verifiche')}
-        >
-          <Text className={`text-xs font-bold leading-none ${activeSubTab === 'verifiche' ? 'text-black' : 'text-zinc-400'}`}>
-            Lista PT
-          </Text>
-          {stats && stats.ptInAttesa > 0 && (
-            <View 
-              style={{ minWidth: 16, height: 16 }}
-              className={`px-1 rounded-full items-center justify-center ${activeSubTab === 'verifiche' ? 'bg-black' : 'bg-red-500'}`}
-            >
-              <Text 
-                style={{ includeFontPadding: false, textAlignVertical: 'center' }}
-                className={`text-[10px] font-black leading-none ${activeSubTab === 'verifiche' ? 'text-[#FFB430]' : 'text-white'}`}
-              >
-                {stats.ptInAttesa}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
-
       {loading ? (
         <View className="flex-1 justify-center items-center">
           <ActivityIndicator size="large" color="#FFB430" />
-          <Text className="text-zinc-500 text-xs mt-3">Caricamento dati amministrativi...</Text>
+          <Text className="text-zinc-500 text-xs mt-3">Caricamento dati...</Text>
         </View>
       ) : (
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
-          {activeSubTab === 'stats' ? (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40, paddingTop: 16 }}>
+          {initialTab === 'stats' ? (
             <View className="px-5">
               {/* Money Section */}
               <Text className="text-zinc-400 text-xs font-bold uppercase tracking-wider mb-3">Finanze & Transazioni</Text>

@@ -43,4 +43,9 @@ public class PersonalTrainer {
         inverseJoinColumns = @JoinColumn(name = "id_specializzazione")
     )
     private java.util.Set<Specializzazione> specializzazioni = new java.util.HashSet<>();
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_specializzazione_in_evidenza")
+    private Specializzazione specializzazioneInEvidenza;
 }
+

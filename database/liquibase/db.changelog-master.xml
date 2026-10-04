@@ -16,5 +16,7 @@
     <include file="changelog/0009-creazione-tabella-relazione-atleta-personal-trainer.xml" relativeToChangelogFile="true"/>
     <include file="changelog/0010-creazione-tabelle-specializzazione-pt.xml" relativeToChangelogFile="true"/>
     <include file="changelog/0011-creazione-tabella-recensione-pt.xml" relativeToChangelogFile="true"/>
+    <include file="changelog/0012-aggiunta-specializzazione-in-evidenza-pt.xml" relativeToChangelogFile="true"/>
+
 
 </databaseChangeLog>

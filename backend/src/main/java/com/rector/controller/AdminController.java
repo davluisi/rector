@@ -27,6 +27,12 @@ public class AdminController {
     private com.rector.repository.AtletaPersonalTrainerRepository atletaPersonalTrainerRepository;
 
     @Autowired
+    private com.rector.repository.SpecializzazioneRepository specializzazioneRepository;
+
+    @Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
+
+    @Autowired
     private FileStorageService fileStorageService;
 
     // Helper to check admin privileges
@@ -170,6 +176,148 @@ public class AdminController {
                 "messaggio", verificato ? "Personal Trainer approvato con successo!" : "Verifica del Personal Trainer revocata.",
                 "idUtente", idUtente,
                 "verificato", verificato
+        ));
+    }
+
+    /**
+     * Recupera tutte le specializzazioni con conteggio dei PT associati (per admin)
+     */
+    @GetMapping("/specializzazioni")
+    public ResponseEntity<?> getSpecializzazioni(@RequestHeader(value = "X-Admin-Id", required = false) Long adminId) {
+        if (!isUtenteAdmin(adminId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("errore", "Accesso non autorizzato."));
+        }
+
+        List<com.rector.entity.Specializzazione> specs = specializzazioneRepository.findAllByOrderByNomeAsc();
+
+        // Recuperiamo il conteggio di PT associati per ciascuna specializzazione
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (com.rector.entity.Specializzazione spec : specs) {
+            Integer countPt = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM personal_trainer_specializzazione WHERE id_specializzazione = ?",
+                    Integer.class,
+                    spec.getId()
+            );
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", spec.getId());
+            item.put("nome", spec.getNome());
+            item.put("conteggioPt", countPt != null ? countPt : 0);
+            result.add(item);
+        }
+
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * Aggiunge una nuova specializzazione
+     */
+    @PostMapping("/specializzazioni")
+    public ResponseEntity<?> creaSpecializzazione(
+            @RequestHeader(value = "X-Admin-Id", required = false) Long adminId,
+            @RequestBody Map<String, String> request
+    ) {
+        if (!isUtenteAdmin(adminId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("errore", "Accesso non autorizzato."));
+        }
+
+        String nome = request != null ? request.get("nome") : null;
+        if (nome == null || nome.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("errore", "Il nome della specializzazione non può essere vuoto."));
+        }
+        nome = nome.trim();
+
+        if (specializzazioneRepository.existsByNomeIgnoreCase(nome)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("errore", "Una specializzazione con questo nome esiste già."));
+        }
+
+        com.rector.entity.Specializzazione nuovaSpec = new com.rector.entity.Specializzazione();
+        nuovaSpec.setNome(nome);
+        com.rector.entity.Specializzazione salvata = specializzazioneRepository.save(nuovaSpec);
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(salvata);
+    }
+
+    /**
+     * Modifica una specializzazione mantenendo invariato l'ID
+     */
+    @PutMapping("/specializzazioni/{id}")
+    public ResponseEntity<?> aggiornaSpecializzazione(
+            @RequestHeader(value = "X-Admin-Id", required = false) Long adminId,
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request
+    ) {
+        if (!isUtenteAdmin(adminId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("errore", "Accesso non autorizzato."));
+        }
+
+        Optional<com.rector.entity.Specializzazione> specOpt = specializzazioneRepository.findById(id);
+        if (specOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("errore", "Specializzazione non trovata."));
+        }
+
+        String nuovoNome = request != null ? request.get("nome") : null;
+        if (nuovoNome == null || nuovoNome.trim().isEmpty()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("errore", "Il nome della specializzazione non può essere vuoto."));
+        }
+        nuovoNome = nuovoNome.trim();
+
+        if (specializzazioneRepository.existsByNomeIgnoreCaseAndIdNot(nuovoNome, id)) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("errore", "Esiste già un'altra specializzazione con questo nome."));
+        }
+
+        com.rector.entity.Specializzazione spec = specOpt.get();
+        spec.setNome(nuovoNome);
+        com.rector.entity.Specializzazione salvata = specializzazioneRepository.save(spec);
+
+        return ResponseEntity.ok(salvata);
+    }
+
+    /**
+     * Elimina una specializzazione e rimuove tutte le relative associazioni coi PT
+     */
+    @DeleteMapping("/specializzazioni/{id}")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<?> eliminaSpecializzazione(
+            @RequestHeader(value = "X-Admin-Id", required = false) Long adminId,
+            @PathVariable Long id
+    ) {
+        if (!isUtenteAdmin(adminId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("errore", "Accesso non autorizzato."));
+        }
+
+        Optional<com.rector.entity.Specializzazione> specOpt = specializzazioneRepository.findById(id);
+        if (specOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("errore", "Specializzazione non trovata."));
+        }
+
+        // 1. Azzeriamo il riferimento a specializzazione_in_evidenza se punta a questa spec
+        jdbcTemplate.update(
+                "UPDATE personal_trainer SET id_specializzazione_in_evidenza = NULL WHERE id_specializzazione_in_evidenza = ?",
+                id
+        );
+
+        // 2. Rimuoviamo le associazioni nella tabella ponte personal_trainer_specializzazione
+        jdbcTemplate.update(
+                "DELETE FROM personal_trainer_specializzazione WHERE id_specializzazione = ?",
+                id
+        );
+
+        // 3. Eliminiamo l'entità specializzazione
+        specializzazioneRepository.deleteById(id);
+
+        return ResponseEntity.ok(Map.of(
+                "messaggio", "Specializzazione eliminata con successo.",
+                "id", id
         ));
     }
 }

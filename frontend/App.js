@@ -33,6 +33,7 @@ function MainContent() {
   const [currentUser, setCurrentUser] = useState(null);
   
   const [activeTab, setActiveTab] = useState('home');
+  const [homeRoleTab, setHomeRoleTab] = useState('pt'); // 'pt' | 'atleta' per utenti con ruolo 'entrambi'
 
   useEffect(() => {
     detectActiveApiUrl();
@@ -41,6 +42,11 @@ function MainContent() {
   const handleLogout = () => {
     setCurrentUser(null);
   };
+
+  const [selectedPt, setSelectedPt] = useState(null); // { id, nome, cognome, ... } per la vista di dettaglio PT
+  const [selectedAbbonamentoPt, setSelectedAbbonamentoPt] = useState(null); // { id, nome, ... } per la vista Gestione Abbonamento
+
+  const hasEntrambiRuoli = currentUser?.ruolo === 'entrambi';
 
   return (
     <View 
@@ -60,20 +66,119 @@ function MainContent() {
         {/* Schermata Home */}
         {activeTab === 'home' && (
           <View style={{ flex: 1 }} className="bg-premiumDark">
-            {/* Header con Logo Rector al posto del banner */}
-            <View className="flex-row items-center justify-center px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
-              <Image
-                source={require('./assets/logo-rector-no-sfonfo.png')}
-                className="h-14 w-64"
-                resizeMode="contain"
-              />
-            </View>
+            {/* Header dinamico della Home: se siamo in gestione abbonamento, dettaglio PT o vista standard con logo Rector */}
+            {selectedAbbonamentoPt ? (
+              <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+                <TouchableOpacity
+                  onPress={() => setSelectedAbbonamentoPt(null)}
+                  className="w-10 h-10 rounded-full bg-[#18181C] items-center justify-center border border-[#282830]"
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                <View className="flex-1 items-center px-2">
+                  <Text className="text-lg font-bold text-white tracking-tight" numberOfLines={1}>
+                    Abbonamento
+                  </Text>
+                </View>
+
+                <View className="w-10 h-10" />
+              </View>
+            ) : selectedPt ? (
+              <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+                <TouchableOpacity
+                  onPress={() => setSelectedPt(null)}
+                  className="w-10 h-10 rounded-full bg-[#18181C] items-center justify-center border border-[#282830]"
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+
+                <View className="flex-1 items-center px-2">
+                  <Text className="text-lg font-bold text-white tracking-tight" numberOfLines={1}>
+                    {selectedPt.nome ? `${selectedPt.nome} ${selectedPt.cognome || ''}`.trim() : 'Dettagli PT'}
+                  </Text>
+                </View>
+
+                <View className="w-10 h-10" />
+              </View>
+            ) : (
+              /* Header standard con Logo Rector (centrato in modo assoluto) e tab del browser per ruolo 'entrambi' */
+              <View className="relative flex-row items-end justify-between px-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+                {/* Logo Rector sempre al centro perfetto dello schermo */}
+                <View 
+                  pointerEvents="none" 
+                  className="absolute left-0 right-0 top-0 bottom-0 items-center justify-center z-0"
+                >
+                  <Image
+                    source={require('./assets/logo-rector-no-sfonfo.png')}
+                    className="h-[52px] w-60"
+                    resizeMode="contain"
+                  />
+                </View>
+
+                {/* Tab PT a sinistra */}
+                {hasEntrambiRuoli ? (
+                  <TouchableOpacity
+                    onPress={() => setHomeRoleTab('pt')}
+                    activeOpacity={0.8}
+                    style={{ marginBottom: -1 }}
+                    className={`h-11 px-4 rounded-t-xl justify-center items-center z-10 ${
+                      homeRoleTab === 'pt'
+                        ? 'bg-[#18181D] border-t-2 border-l border-r border-[#A0132C] border-l-[#2A2A32] border-r-[#2A2A32]'
+                        : 'bg-[#121216]/60 border-t border-l border-r border-[#222228] opacity-60'
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-bold ${
+                        homeRoleTab === 'pt' ? 'text-[#FEB32F]' : 'text-zinc-400'
+                      }`}
+                    >
+                      PT
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View />
+                )}
+
+                {/* Tab Atleta a destra */}
+                {hasEntrambiRuoli ? (
+                  <TouchableOpacity
+                    onPress={() => setHomeRoleTab('atleta')}
+                    activeOpacity={0.8}
+                    style={{ marginBottom: -1 }}
+                    className={`h-11 px-4 rounded-t-xl justify-center items-center z-10 ${
+                      homeRoleTab === 'atleta'
+                        ? 'bg-[#18181D] border-t-2 border-l border-r border-[#A0132C] border-l-[#2A2A32] border-r-[#2A2A32]'
+                        : 'bg-[#121216]/60 border-t border-l border-r border-[#222228] opacity-60'
+                    }`}
+                  >
+                    <Text
+                      className={`text-xs font-bold ${
+                        homeRoleTab === 'atleta' ? 'text-[#FEB32F]' : 'text-zinc-400'
+                      }`}
+                    >
+                      Atleta
+                    </Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View />
+                )}
+              </View>
+            )}
 
             <HomeScreen 
-              key={currentUser ? `user-${currentUser.id}-${currentUser.ruolo}` : 'guest'}
+              key={currentUser ? `user-${currentUser.id}-${currentUser.ruolo}-${homeRoleTab}` : 'guest'}
               user={currentUser} 
+              activeHomeRole={hasEntrambiRuoli ? homeRoleTab : null}
+              selectedPt={selectedPt}
+              onSelectPt={setSelectedPt}
+              selectedAbbonamentoPt={selectedAbbonamentoPt}
+              onSelectAbbonamentoPt={setSelectedAbbonamentoPt}
               onNavigateWorkout={() => setActiveTab('workout')}
               onNavigateProfile={() => setActiveTab('profile')}
+              onUpdateUser={setCurrentUser}
             />
           </View>
         )}
