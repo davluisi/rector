@@ -68,14 +68,16 @@ function MainContent() {
           <View style={{ flex: 1 }} className="bg-premiumDark">
             {/* Header dinamico della Home: se siamo in gestione abbonamento, dettaglio PT o vista standard con logo Rector */}
             {selectedAbbonamentoPt ? (
-              <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
-                <TouchableOpacity
-                  onPress={() => setSelectedAbbonamentoPt(null)}
-                  className="w-10 h-10 rounded-full bg-[#18181C] items-center justify-center border border-[#282830]"
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
+              <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+                <View className="w-10 items-start">
+                  <TouchableOpacity
+                    onPress={() => setSelectedAbbonamentoPt(null)}
+                    className="p-1"
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
 
                 <View className="flex-1 items-center px-2">
                   <Text className="text-lg font-bold text-white tracking-tight" numberOfLines={1}>
@@ -83,17 +85,19 @@ function MainContent() {
                   </Text>
                 </View>
 
-                <View className="w-10 h-10" />
+                <View className="w-10" />
               </View>
             ) : selectedPt ? (
-              <View className="flex-row items-center justify-between px-5 py-3 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
-                <TouchableOpacity
-                  onPress={() => setSelectedPt(null)}
-                  className="w-10 h-10 rounded-full bg-[#18181C] items-center justify-center border border-[#282830]"
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
-                </TouchableOpacity>
+              <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+                <View className="w-10 items-start">
+                  <TouchableOpacity
+                    onPress={() => setSelectedPt(null)}
+                    className="p-1"
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
 
                 <View className="flex-1 items-center px-2">
                   <Text className="text-lg font-bold text-white tracking-tight" numberOfLines={1}>
@@ -101,7 +105,7 @@ function MainContent() {
                   </Text>
                 </View>
 
-                <View className="w-10 h-10" />
+                <View className="w-10" />
               </View>
             ) : (
               /* Header standard con Logo Rector (centrato in modo assoluto) e tab del browser per ruolo 'entrambi' */

@@ -132,18 +132,35 @@ export default function HomeScreen({
 
   const hasActiveFilters = Boolean((selectedSpecializzazioneIds && selectedSpecializzazioneIds.length > 0) || etaMin || etaMax);
 
-  // Callback al salvataggio di una recensione: aggiorna la media locale sia in activeTrainers sia in ptVerificati
+  // Callback al salvataggio di una recensione: aggiorna la media locale sia in activeTrainers sia in ptVerificati e nello user globale
   const handleReviewSaved = ({ trainerId, mediaStelle, numeroRecensioni }) => {
     if (mediaStelle !== undefined) {
-      setActiveTrainers(prev => prev.map(t => {
-        if ((t.id || t.idUtente) === trainerId) {
-          return { ...t, mediaStelle, numeroRecensioni };
+      const matchTrainer = (t) => {
+        const id = t.id !== undefined && t.id !== null ? t.id : t.idUtente;
+        return String(id) === String(trainerId);
+      };
+
+      setActiveTrainers(prev => {
+        const updated = prev.map(t => {
+          if (matchTrainer(t)) {
+            return { ...t, mediaStelle, numeroRecensioni };
+          }
+          return t;
+        });
+
+        // Sincronizza anche l'oggetto utente globale nel componente genitore (App.js)
+        if (onUpdateUser && user) {
+          onUpdateUser({
+            ...user,
+            personalTrainers: updated,
+          });
         }
-        return t;
-      }));
+
+        return updated;
+      });
 
       setPtVerificati(prev => prev.map(t => {
-        if ((t.id || t.idUtente) === trainerId) {
+        if (matchTrainer(t)) {
           return { ...t, mediaStelle, numeroRecensioni };
         }
         return t;
@@ -365,7 +382,8 @@ export default function HomeScreen({
     const isSingle = activeTrainers.length === 1;
 
     return (
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }}>
+      <View className="flex-1">
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 }}>
         {/* Titolo singolare / plurale richiesto */}
         <View className="mb-5">
           <Text className="text-2xl font-black text-white">
@@ -588,18 +606,6 @@ export default function HomeScreen({
           </View>
         )}
 
-        {/* Modal Recensione */}
-        <ReviewModal
-          visible={isReviewModalVisible}
-          onClose={() => {
-            setIsReviewModalVisible(false);
-            setReviewModalTrainer(null);
-          }}
-          trainer={reviewModalTrainer}
-          currentUser={user}
-          onReviewSaved={handleReviewSaved}
-        />
-
         {/* Modal dei Filtri per la lista estesa */}
         <FilterModal
           visible={isFilterModalVisible}
@@ -620,8 +626,21 @@ export default function HomeScreen({
           }}
         />
       </ScrollView>
-    );
-  }
+
+      {/* ReviewModal a schermo intero (overlay diretto fuori dallo ScrollView della home) */}
+      <ReviewModal
+        visible={isReviewModalVisible}
+        onClose={() => {
+          setIsReviewModalVisible(false);
+          setReviewModalTrainer(null);
+        }}
+        trainer={reviewModalTrainer}
+        currentUser={user}
+        onReviewSaved={handleReviewSaved}
+      />
+    </View>
+  );
+}
 
   // CASO 3: Utente PT o Admin
   return (

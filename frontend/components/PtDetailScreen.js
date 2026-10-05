@@ -49,10 +49,7 @@ export default function PtDetailScreen({ ptId, user, onBack, onSubscriptionSucce
   }, [ptId]);
 
   const handleAbbonati = async () => {
-    if (!user) {
-      setErrorMessage('Effettua il login per poterti abbonare.');
-      return;
-    }
+    if (!user) return;
     if (user.ruolo !== 'utente_atleta' && user.ruolo !== 'entrambi') {
       setErrorMessage('Devi avere un profilo da atleta attivo per abbonarti.');
       return;
@@ -125,13 +122,10 @@ export default function PtDetailScreen({ ptId, user, onBack, onSubscriptionSucce
                 )}
               </View>
 
-              <View className="flex-row items-center gap-1.5 mb-1">
+              <View className="mb-1">
                 <Text className="text-white text-xl font-extrabold text-center">
                   {trainer.nome} {trainer.cognome}
                 </Text>
-                {trainer.verificato && (
-                  <Ionicons name="checkmark-circle" size={18} color="#FFB430" />
-                )}
               </View>
 
               {/* Informazioni aggiuntive (Età / Genere) */}
@@ -278,7 +272,13 @@ export default function PtDetailScreen({ ptId, user, onBack, onSubscriptionSucce
 
           {/* Barra inferiore fissa con pulsante "Abbonati" */}
           <View className="absolute bottom-0 left-0 right-0 bg-[#121216]/95 border-t border-[#222228] px-6 py-4">
-            {isSelf ? (
+            {!user ? (
+              <View className="h-12 bg-[#202026] rounded-xl justify-center items-center border border-[#2A2A34] px-4">
+                <Text className="text-zinc-400 font-bold text-sm text-center">
+                  Effettua l'accesso per abbonarti
+                </Text>
+              </View>
+            ) : isSelf ? (
               <View className="h-12 bg-[#202026] rounded-xl justify-center items-center border border-[#2A2A34]">
                 <Text className="text-zinc-500 font-bold text-sm">Questo è il tuo profilo</Text>
               </View>

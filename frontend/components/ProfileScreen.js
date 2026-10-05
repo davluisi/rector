@@ -506,6 +506,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   };
 
   const handleSaveField = async () => {
+    Keyboard.dismiss();
     setSubmitted(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -630,6 +631,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   };
 
   const handleVerifyEmailOtp = async () => {
+    Keyboard.dismiss();
     setSubmitted(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -697,6 +699,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   };
 
   const handleSavePassword = async () => {
+    Keyboard.dismiss();
     setSubmittedPassword(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -799,12 +802,7 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
   };
 
   const handleCancel = () => {
-    const isPt = user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi';
-    if (isPt) {
-      setCurrentScreen('impostazioni');
-    } else {
-      setCurrentScreen('view');
-    }
+    setCurrentScreen('impostazioni');
     setSubmitted(false);
     setModifiedFields({});
     setErrorMessage('');
@@ -928,26 +926,15 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
             </>
           )}
 
-          {/* Impostazioni (per PT / entrambi) oppure Profilo (per Atleta semplice) */}
-          {(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') ? (
-            <TouchableOpacity 
-              className="bg-inputDark border border-inputBorder h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3"
-              activeOpacity={0.7}
-              onPress={() => setCurrentScreen('impostazioni')}
-            >
-              <Ionicons name="settings-outline" size={18} color="#FFFFFF" />
-              <Text className="text-zinc-300 text-[15px] font-bold">Impostazioni</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              className="bg-inputDark border border-inputBorder h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3"
-              activeOpacity={0.7}
-              onPress={() => setCurrentScreen('edit')}
-            >
-              <Ionicons name="person-outline" size={18} color="#FFFFFF" />
-              <Text className="text-zinc-300 text-[15px] font-bold">Profilo</Text>
-            </TouchableOpacity>
-          )}
+          {/* Tasto Impostazioni (per tutti gli utenti: Atleta, PT, entrambi) */}
+          <TouchableOpacity 
+            className="bg-inputDark border border-inputBorder h-12 rounded-xl justify-center items-center flex-row gap-2 mb-3"
+            activeOpacity={0.7}
+            onPress={() => setCurrentScreen('impostazioni')}
+          >
+            <Ionicons name="settings-outline" size={18} color="#FFFFFF" />
+            <Text className="text-zinc-300 text-[15px] font-bold">Impostazioni</Text>
+          </TouchableOpacity>
 
           {/* Logout Button */}
           <TouchableOpacity 
@@ -1043,18 +1030,6 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
               <Text className="text-white text-base font-semibold mt-1.5">{cognome || 'N/D'}</Text>
             </TouchableOpacity>
 
-            {/* Email (visibile qui solo per utente atleta semplice; per PT ed entrambi è in Account) */}
-            {!(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') && (
-              <TouchableOpacity 
-                onPress={() => { setEditingField('email'); setEditingValue(email); }} 
-                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
-                activeOpacity={0.7}
-              >
-                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Email</Text>
-                <Text className="text-white text-base font-semibold mt-1.5">{email || 'N/D'}</Text>
-              </TouchableOpacity>
-            )}
-
             {/* Data di nascita */}
             <TouchableOpacity 
               onPress={() => { setEditingField('dataNascita'); setEditingValue(dataNascita); }} 
@@ -1098,18 +1073,6 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
               >
                 <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Altezza</Text>
                 <Text className="text-white text-base font-semibold mt-1.5">{altezza ? `${altezza} cm` : 'N/D'}</Text>
-              </TouchableOpacity>
-            )}
-
-            {/* Password Row (visibile qui solo per utente atleta semplice; per PT ed entrambi è in Account) */}
-            {!(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') && (
-              <TouchableOpacity 
-                onPress={() => handleOpenPassword('edit')} 
-                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
-                activeOpacity={0.7}
-              >
-                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Password</Text>
-                <Text className="text-white text-base font-semibold mt-1.5">••••••••</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1251,179 +1214,183 @@ export default function ProfileScreen({ user, onLogout, onUpdateUser }) {
         </Animated.View>
       )}
 
-      {/* 1b. IMPOSTAZIONI SCREEN (Personal Trainer) */}
-      {(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') && (
-        <Animated.View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            transform: [{ translateX: impostazioniTranslateX }],
-          }}
-        >
-          {/* Header locale per Impostazioni */}
-          <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
-            <View className="w-10 items-start">
-              <TouchableOpacity onPress={() => setCurrentScreen('view')} className="p-1">
-                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-            <View className="flex-1 items-center">
-              <Text className="text-lg font-bold text-white tracking-tight">Impostazioni</Text>
-            </View>
-            <View className="w-10" />
+      {/* 1b. IMPOSTAZIONI SCREEN (Disponibile per tutti gli utenti) */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          transform: [{ translateX: impostazioniTranslateX }],
+        }}
+      >
+        {/* Header locale per Impostazioni */}
+        <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+          <View className="w-10 items-start">
+            <TouchableOpacity onPress={() => setCurrentScreen('view')} className="p-1">
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
-
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
-          >
-            <View className="mt-2" />
-
-            <View className="w-full gap-3.5 mb-6">
-              {/* Voce Profilo */}
-              <TouchableOpacity
-                onPress={() => setCurrentScreen('edit')}
-                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-row items-center justify-between"
-                activeOpacity={0.7}
-              >
-                <View className="flex-row items-center gap-3">
-                  <View className="w-10 h-10 rounded-xl bg-[#202026] justify-center items-center border border-borderDark/60">
-                    <Ionicons name="person-outline" size={20} color="#FFFFFF" />
-                  </View>
-                  <View>
-                    <Text className="text-white text-base font-semibold">Profilo</Text>
-                    <Text className="text-zinc-500 text-xs mt-0.5">Dati personali</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-
-              {/* Voce Account */}
-              <TouchableOpacity
-                onPress={() => setCurrentScreen('account')}
-                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-row items-center justify-between"
-                activeOpacity={0.7}
-              >
-                <View className="flex-row items-center gap-3">
-                  <View className="w-10 h-10 rounded-xl bg-[#202026] justify-center items-center border border-borderDark/60">
-                    <Ionicons name="shield-outline" size={20} color="#FFFFFF" />
-                  </View>
-                  <View>
-                    <Text className="text-white text-base font-semibold">Account</Text>
-                    <Text className="text-zinc-500 text-xs mt-0.5">Email, password e profilo atleta</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </Animated.View>
-      )}
-
-      {/* 1c. ACCOUNT SCREEN (Personal Trainer) */}
-      {(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') && (
-        <Animated.View
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            transform: [{ translateX: accountTranslateX }],
-          }}
-        >
-          {/* Header locale per Account */}
-          <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
-            <View className="w-10 items-start">
-              <TouchableOpacity onPress={() => setCurrentScreen('impostazioni')} className="p-1">
-                <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-            <View className="flex-1 items-center">
-              <Text className="text-lg font-bold text-white tracking-tight">Account</Text>
-            </View>
-            <View className="w-10" />
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-bold text-white tracking-tight">Impostazioni</Text>
           </View>
+          <View className="w-10" />
+        </View>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
-          >
-            <View className="mt-2" />
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+        >
+          <View className="mt-2" />
 
-            {/* Credenziali di accesso */}
-            <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-3 px-1">Credenziali di accesso</Text>
-            <View className="w-full gap-3.5 mb-6">
-              {/* Email */}
-              <TouchableOpacity 
-                onPress={() => { setEditingField('email'); setEditingValue(email); }} 
-                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
-                activeOpacity={0.7}
-              >
-                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Email</Text>
-                <Text className="text-white text-base font-semibold mt-1.5">{email || 'N/D'}</Text>
-              </TouchableOpacity>
-
-              {/* Password */}
-              <TouchableOpacity 
-                onPress={() => handleOpenPassword('account')} 
-                className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
-                activeOpacity={0.7}
-              >
-                <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Password</Text>
-                <Text className="text-white text-base font-semibold mt-1.5">••••••••</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Profilo da Atleta */}
-            <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-3 px-1">Profilo da atleta</Text>
-            <View className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-5 mb-6">
-              <View className="flex-row items-center gap-3 mb-3">
-                <View className="w-10 h-10 rounded-xl bg-accentCyan/10 border border-accentCyan/20 justify-center items-center">
-                  <Ionicons name="barbell-outline" size={20} color="#00F0FF" />
+          <View className="w-full gap-3.5 mb-6">
+            {/* Voce Profilo */}
+            <TouchableOpacity
+              onPress={() => setCurrentScreen('edit')}
+              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-row items-center justify-between"
+              activeOpacity={0.7}
+            >
+              <View className="flex-row items-center gap-3">
+                <View className="w-10 h-10 rounded-xl bg-[#202026] justify-center items-center border border-borderDark/60">
+                  <Ionicons name="person-outline" size={20} color="#FFFFFF" />
                 </View>
-                <View className="flex-1">
-                  <Text className="text-white text-base font-semibold">
-                    {user.ruolo === 'entrambi' ? 'Attivo' : 'Non attivo'}
-                  </Text>
-                  <Text className="text-zinc-400 text-xs mt-0.5">
-                    {user.ruolo === 'entrambi'
-                      ? 'Puoi ricevere piani di allenamento da altri personal trainer.'
-                      : 'Attiva il profilo da atleta per farti seguire da altri personal trainer.'}
+                <View>
+                  <Text className="text-white text-base font-semibold">Profilo</Text>
+                  <Text className="text-zinc-500 text-xs mt-0.5">Dati personali</Text>
+                </View>
+              </View>
+            </TouchableOpacity>
+
+            {/* Voce Account */}
+            <TouchableOpacity
+              onPress={() => setCurrentScreen('account')}
+              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-row items-center justify-between"
+              activeOpacity={0.7}
+            >
+              <View className="flex-row items-center gap-3">
+                <View className="w-10 h-10 rounded-xl bg-[#202026] justify-center items-center border border-borderDark/60">
+                  <Ionicons name="shield-outline" size={20} color="#FFFFFF" />
+                </View>
+                <View>
+                  <Text className="text-white text-base font-semibold">Account</Text>
+                  <Text className="text-zinc-500 text-xs mt-0.5">
+                    {(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi')
+                      ? 'Email, password e profilo atleta'
+                      : 'Email e password'}
                   </Text>
                 </View>
               </View>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </Animated.View>
 
-              <TouchableOpacity
-                className={`h-12 rounded-xl justify-center items-center flex-row gap-2 mt-2 ${
-                  user.ruolo === 'entrambi'
-                    ? 'bg-accentPink/10 border border-accentPink/30'
-                    : 'bg-accentCyan/15 border border-accentCyan/40'
-                }`}
-                activeOpacity={0.8}
-                onPress={() => {
-                  setAtletaModalError('');
-                  setShowAtletaModal(true);
-                }}
-              >
-                <Ionicons
-                  name={user.ruolo === 'entrambi' ? 'close-circle-outline' : 'checkmark-circle-outline'}
-                  size={18}
-                  color={user.ruolo === 'entrambi' ? '#A0132C' : '#00F0FF'}
-                />
-                <Text
-                  className={`text-[15px] font-bold ${
-                    user.ruolo === 'entrambi' ? 'text-accentPink' : 'text-accentCyan'
+      {/* 1c. ACCOUNT SCREEN (Email e Password per tutti, Profilo da Atleta per PT) */}
+      <Animated.View
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          transform: [{ translateX: accountTranslateX }],
+        }}
+      >
+        {/* Header locale per Account */}
+        <View className="flex-row items-center justify-between py-3 px-4 border-b border-[#1A1A1E] h-16 bg-premiumDark z-50">
+          <View className="w-10 items-start">
+            <TouchableOpacity onPress={() => setCurrentScreen('impostazioni')} className="p-1">
+              <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+          <View className="flex-1 items-center">
+            <Text className="text-lg font-bold text-white tracking-tight">Account</Text>
+          </View>
+          <View className="w-10" />
+        </View>
+
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 24, paddingBottom: 40 }}
+        >
+          <View className="mt-2" />
+
+          {/* Credenziali di accesso */}
+          <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-3 px-1">Credenziali di accesso</Text>
+          <View className="w-full gap-3.5 mb-6">
+            {/* Email */}
+            <TouchableOpacity 
+              onPress={() => { setEditingField('email'); setEditingValue(email); }} 
+              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+              activeOpacity={0.7}
+            >
+              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Email</Text>
+              <Text className="text-white text-base font-semibold mt-1.5">{email || 'N/D'}</Text>
+            </TouchableOpacity>
+
+            {/* Password */}
+            <TouchableOpacity 
+              onPress={() => handleOpenPassword('account')} 
+              className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-4 flex-col justify-center"
+              activeOpacity={0.7}
+            >
+              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider">Password</Text>
+              <Text className="text-white text-base font-semibold mt-1.5">••••••••</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Profilo da Atleta (solo per chi è PT / entrambi) */}
+          {(user.ruolo === 'pt' || user.ruolo === 'PERSONAL_TRAINER' || user.ruolo === 'entrambi') && (
+            <>
+              <Text className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-3 px-1">Profilo da atleta</Text>
+              <View className="w-full bg-[#16161A]/60 border border-borderDark/40 rounded-2xl p-5 mb-6">
+                <View className="flex-row items-center gap-3 mb-3">
+                  <View className="w-10 h-10 rounded-xl bg-accentCyan/10 border border-accentCyan/20 justify-center items-center">
+                    <Ionicons name="barbell-outline" size={20} color="#00F0FF" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-white text-base font-semibold">
+                      {user.ruolo === 'entrambi' ? 'Attivo' : 'Non attivo'}
+                    </Text>
+                    <Text className="text-zinc-400 text-xs mt-0.5">
+                      {user.ruolo === 'entrambi'
+                        ? 'Puoi ricevere piani di allenamento da altri personal trainer.'
+                        : 'Attiva il profilo da atleta per farti seguire da altri personal trainer.'}
+                    </Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  className={`h-12 rounded-xl justify-center items-center flex-row gap-2 mt-2 ${
+                    user.ruolo === 'entrambi'
+                      ? 'bg-accentPink/10 border border-accentPink/30'
+                      : 'bg-accentCyan/15 border border-accentCyan/40'
                   }`}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setAtletaModalError('');
+                    setShowAtletaModal(true);
+                  }}
                 >
-                  {user.ruolo === 'entrambi' ? 'Disattiva' : 'Attiva'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </Animated.View>
-      )}
+                  <Ionicons
+                    name={user.ruolo === 'entrambi' ? 'close-circle-outline' : 'checkmark-circle-outline'}
+                    size={18}
+                    color={user.ruolo === 'entrambi' ? '#A0132C' : '#00F0FF'}
+                  />
+                  <Text
+                    className={`text-[15px] font-bold ${
+                      user.ruolo === 'entrambi' ? 'text-accentPink' : 'text-accentCyan'
+                    }`}
+                  >
+                    {user.ruolo === 'entrambi' ? 'Disattiva' : 'Attiva'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </ScrollView>
+      </Animated.View>
 
       {/* 5. ADMIN SCREEN */}
       {(user.admin || user.isAdmin) && (

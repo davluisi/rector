@@ -280,6 +280,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
   };
 
   const handleLogin = async () => {
+    Keyboard.dismiss();
     setSubmitted(true);
     setModifiedFields({});
     setErrorMessage('');
@@ -332,6 +333,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
 
   // Step 1: Richiesta OTP reset password
   const handleForgotSendOtp = async () => {
+    Keyboard.dismiss();
     setSubmitted(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -372,6 +374,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
 
   // Step 2: Verifica codice OTP
   const handleForgotVerifyOtp = async () => {
+    Keyboard.dismiss();
     setSubmitted(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -413,6 +416,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
 
   // Step 3: Impostazione nuova password
   const handleResetPasswordSubmit = async () => {
+    Keyboard.dismiss();
     setSubmitted(true);
     setErrorMessage('');
     setSuccessMessage('');
@@ -777,6 +781,7 @@ export default function AuthScreen({ visible, onClose, mode, setMode, onLoginSuc
   };
 
   const handleRegister = async () => {
+    Keyboard.dismiss();
     setSubmitted(true);
     setErrorMessage('');
     setSuccessMessage('Preparazione registrazione...');
