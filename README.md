@@ -2,11 +2,14 @@
 
 Rector è una piattaforma moderna progettata per connettere **atleti** e **personal trainer**. Consente agli atleti di trovare il professionista ideale per le proprie esigenze e ricevere schede e programmi di allenamento personalizzati.
 
+> [!NOTE]
+> **Stato del Progetto**: Il progetto è attualmente in fase attiva di sviluppo (Work in Progress). Diverse funzionalità chiave (es. questionario di matching, gestione ed esecuzione schede di allenamento, piani tariffari personalizzati, chat in-app) sono in corso di definizione ed implementazione. Consulta [FEATURES.md](file:///c:/Progetti/rector/FEATURES.md) per l'elenco completo delle funzionalità previste e completate.
+
 ---
 
-## 🚀 Stack Tecnologico
+## 🚀 Stack Tecnologico & Architettura Cloud
 
-Il progetto è suddiviso in un'architettura modulare composta da frontend, backend e database:
+Il progetto adotta un'architettura modulare e scalabile:
 
 ### 📱 Frontend (App Mobile)
 *   **Framework**: [React Native](https://reactnative.dev/) con [Expo (SDK 57)](https://expo.dev/)
@@ -16,9 +19,13 @@ Il progetto è suddiviso in un'architettura modulare composta da frontend, backe
 
 ### ☕ Backend (API Service)
 *   **Linguaggio**: Java 17
-*   **Framework**: [Spring Boot](https://spring.io/projects/spring-boot)
-*   **Persistenza**: Spring Data JPA / Hibernate
-*   **Database Connector**: PostgreSQL Driver
+*   **Framework**: [Spring Boot](https://spring.io/projects/spring-boot) (Spring Web, Spring Security, Spring Data JPA)
+*   **Database Migration**: [Liquibase](https://www.liquibase.org/) con changelog strutturati
+*   **AWS SDK for Java v2**: Integrazione per la gestione dei servizi cloud
+
+### ☁️ Servizi Cloud (Amazon Web Services)
+*   **Amazon S3 (Simple Storage Service)**: Archiviazione sicura e scalabile di file multimediali, immagini di profilo, documenti di certificazione e video degli esercizi.
+*   **Amazon CloudFront**: Content Delivery Network (CDN) per la distribuzione rapida, sicura e a bassa latenza dei contenuti multimediali ospitati su S3.
 
 ### 🗄️ Database
 *   **Motore**: [PostgreSQL](https://www.postgresql.org/)
@@ -32,34 +39,8 @@ Il progetto è suddiviso in un'architettura modulare composta da frontend, backe
 Rector/
 ├── backend/          # Sorgenti dell'API in Spring Boot (Java)
 ├── frontend/         # Applicazione mobile Expo/React Native (Javascript)
-├── database/         # Configurazione PostgreSQL e script SQL di inizializzazione
+├── database/         # Configurazione PostgreSQL e script/changelog Liquibase
+├── FEATURES.md       # Roadmap e riepilogo dettagliato delle funzionalità
 ├── run_be.bat        # Script batch per avviare il Backend
 └── run_fe.bat        # Script batch per avviare il Frontend Expo
 ```
-
----
-
-## 🛠️ Come Avviare il Progetto
-
-### 1. Database (PostgreSQL)
-Avvia l'istanza containerizzata del database tramite Docker Compose:
-```bash
-cd database
-docker-compose up -d
-```
-
-### 2. Backend (Spring Boot)
-Puoi avviare il backend tramite lo script batch fornito:
-*   Fai doppio clic su `run_be.bat` nella root del progetto, oppure esegui:
-    ```bash
-    ./run_be.bat
-    ```
-*   Il backend sarà in ascolto su `http://localhost:8080`.
-
-### 3. Frontend (Expo / React Native)
-Avvia il server di sviluppo di Metro:
-*   Fai doppio clic su `run_fe.bat` nella root del progetto, oppure esegui:
-    ```bash
-    ./run_fe.bat
-    ```
-*   Inquadra il QR code generato nel terminale utilizzando l'applicazione **Expo Go** sul tuo smartphone (iOS/Android) per testare l'app in tempo reale.

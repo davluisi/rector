@@ -16,7 +16,7 @@
     <changeSet id="0007-imposta-primo-admin" author="mondopt">
         <update tableName="utente">
             <column name="is_admin" valueBoolean="true"/>
-            <where>email = 'davideluisi002@gmail.com'</where>
+            <where>email = '${admin.email}'</where>
         </update>
     </changeSet>
 

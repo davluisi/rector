@@ -1,9 +1,10 @@
 // Central configuration for backend API URLs
+const envUrl = process.env.EXPO_PUBLIC_API_URL;
+
 const API_URLS = [
-  'http://192.168.1.180:8080',
-  'http://10.0.2.2:8080',
+  ...(envUrl ? [envUrl] : []),
   'http://localhost:8080',
-  'http://192.168.1.67:8080'
+  'http://10.0.2.2:8080'
 ];
 
 export const config = {

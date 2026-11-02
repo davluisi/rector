@@ -10,6 +10,7 @@ server.port=8080
 
 # Liquibase Configuration
 spring.liquibase.change-log=classpath:db/changelog/db.changelog-master.xml
+spring.liquibase.parameters.admin.email=${ADMIN_EMAIL:admin@example.it}
 
 # AWS Configuration
 aws.access-key-id=${AWS_ACCESS_KEY_ID:}
